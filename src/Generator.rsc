@@ -1,15 +1,13 @@
 @license{Copyright CWI --- Jurgen Vinju, Stijn de Gouw 2011}
 module Generator
 
-extend lang::java::syntax::BigJava;
-extend lang::view::syntax::View;
-extend lang::antlr::syntax::ANTLR;
+import Syntax;
 import IO;  
 import ToString;    
 import String;
-          
+                    
 alias historyVar = tuple[str history, str grammar, map[str,str] tokens, str field];
- 
+  
 @doc{ 
 This is the main function of this application:
 Usage: generate(|project://Histories/examples/StackWithSource/StackInterface.java|,|project://Histories/examples/StackWithSource/StackImpl.java|);
