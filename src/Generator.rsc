@@ -230,6 +230,7 @@ return "
        '  
        '  public <historyName>() {
        '    _L.add(new CommonToken(Token.EOF));
+       '    _L.add(new CommonToken(Token.EOF));
        '    parse(); // the empty history
        '  }
        '
@@ -275,7 +276,7 @@ return "
        '  <if (c in tokens) /* store only if in view */ {>
        '  public void update(<c> e) {
        '       e.setType(<grammarName>Lexer.<tokens[c]>);
-       '       _L.add(_L.size()-1, e);
+       '       _L.add(_L.size()-2, e);
        '       parse();
        '  }
        '  <}>
@@ -283,7 +284,7 @@ return "
        '  <if (r in tokens) /* store only if in view */ {>
        '  public void update(<r> e) {
        '       e.setType(<grammarName>Lexer.<tokens[r]>);
-       '       _L.add(_L.size()-1, e);
+       '       _L.add(_L.size()-2, e);
        '       parse();
        '  }
        '  <}>
