@@ -15,8 +15,8 @@ alias historyVar = tuple[str history, str grammar, map[str,str] tokens, str fiel
      
 @doc{ 
 This is the main function of this application:
-Usage: generate(|project://Histories/examples/StackWithSource/StackInterface.java|,|project://Histories/examples/StackWithSource/StackImpl.java|);
-  or:  generate(|project://Histories/test/StackInterface.java|,|project://Histories/test/StackImpl.java|);
+Usage: generate(|project://Saga/examples/StackWithSource/StackInterface.java|,|project://Saga/examples/StackWithSource/StackImpl.java|);
+  or:  generate(|project://Saga/test/StackInterface.java|,|project://Saga/test/StackImpl.java|);
 } 
 public int generate(loc interface, loc implementation) {
   if (interface.extension != "java" || implementation.extension != "java")
@@ -30,7 +30,7 @@ public int generate(loc interface, loc implementation) {
   
   println("Parsing java implementation");
   implementationTree = parse(#start[CompilationUnit], implementation).top;
-  t 
+   
   println("Parsing communication views");
   histories = getView(interfaceTree);
   

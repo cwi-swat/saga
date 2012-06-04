@@ -10,6 +10,7 @@ public class StackHistory implements TokenSource {
   
   public StackHistory() {
     _L.add(new CommonToken(Token.EOF));
+    _L.add(new CommonToken(Token.EOF));
     parse(); // the empty history
   }
 
@@ -50,7 +51,7 @@ public class StackHistory implements TokenSource {
   
   public void update(return_pop e) {
        e.setType(StackLexer.POP);
-       _L.add(_L.size()-1, e);
+       _L.add(_L.size()-2, e);
        parse();
   }
   
@@ -60,7 +61,7 @@ public class StackHistory implements TokenSource {
   
   public void update(return_push e) {
        e.setType(StackLexer.PUSH);
-       _L.add(_L.size()-1, e);
+       _L.add(_L.size()-2, e);
        parse();
   }
   
