@@ -1,13 +1,18 @@
 @license{Copyright CWI --- Jurgen Vinju, Stijn de Gouw 2011}
 module Generator
 
-import Syntax;
+//import ParseTree; 
+//import Syntax;
+extend lang::java::syntax::BigJava;
+extend lang::view::syntax::View;
+extend lang::antlr::syntax::ANTLR;
+
 import IO;  
 import ToString;    
-import String;
-                    
+import String;    
+   
 alias historyVar = tuple[str history, str grammar, map[str,str] tokens, str field];
-  
+     
 @doc{ 
 This is the main function of this application:
 Usage: generate(|project://Histories/examples/StackWithSource/StackInterface.java|,|project://Histories/examples/StackWithSource/StackImpl.java|);
@@ -25,7 +30,7 @@ public int generate(loc interface, loc implementation) {
   
   println("Parsing java implementation");
   implementationTree = parse(#start[CompilationUnit], implementation).top;
-  
+  t 
   println("Parsing communication views");
   histories = getView(interfaceTree);
   

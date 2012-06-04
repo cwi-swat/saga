@@ -5,7 +5,7 @@ extend lang::java::syntax::Modifiers;
 extend lang::java::syntax::JavaTypes;
 extend lang::java::syntax::FieldDecl;
 
-
+ 
 syntax MethodDeclarator
   =  MethodDeclarator: MethodDeclarator "[" "]" 
     |  comma2: Identifier \ IdentifierKeywords !>> [a-z A-Z 0-9 _ $] "(" {FormalParameter ","}* ")" 
