@@ -367,8 +367,8 @@ syntax PrimitiveType
   ;
 
 syntax Type
-  =  ReferenceType: ReferenceType 
-    |  PrimitiveType: PrimitiveType 
+  =  @category="Type" ReferenceType: ReferenceType 
+    |  @category="Type" PrimitiveType: PrimitiveType 
   ;
 
 syntax Name
@@ -548,7 +548,7 @@ syntax IntegerLiteral
 
 syntax MethodDeclarator
   =  MethodDeclarator: MethodDeclarator "[" "]" 
-    |  comma2: Identifier \ IdentifierKeywords !>> [a-z A-Z 0-9 _ $] "(" {FormalParameter ","}* ")" 
+    |  Identifier id \ IdentifierKeywords !>> [a-z A-Z 0-9 _ $] "(" {FormalParameter ","}* p ")" 
   ;
 
 syntax MethodBody
@@ -557,7 +557,7 @@ syntax MethodBody
   ;
 
 syntax MethodHeader
-  =  MethodHeader: Modifier* MethodRes MethodDeclarator Throws? 
+  =  MethodHeader: Modifier* m MethodRes r MethodDeclarator d Throws?
   ;
 
 syntax MethodRes
@@ -570,7 +570,7 @@ syntax Throws
   ;
 
 syntax FormalParameter
-  =  \Type-VariableDeclaratorId: Modifier* Type VariableDeclaratorId 
+  =  \Type-VariableDeclaratorId: Modifier* m Type t VariableDeclaratorId v
   ;
 
 syntax MethodDeclaration

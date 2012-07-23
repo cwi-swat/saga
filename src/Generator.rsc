@@ -1,206 +1,100 @@
-@license{Copyright CWI --- Jurgen Vinju, Stijn de Gouw 2011}
+@license{Copyright CWI --- Jurgen Vinju, Stijn de Gouw 2012}
 module Generator
 
-//import ParseTree; 
-//import Syntax;
-extend lang::java::syntax::BigJava;
-extend lang::view::syntax::View;
-extend lang::antlr::syntax::ANTLR;
+import ParseTree; // for parse
+import IO; // for println, writeFile
+import ValueIO; // for readTextValueString
+import List; // for intercalate, tail
+import String; // for trim
 
-import IO;  
-import ToString;    
-import String;    
-   
-alias historyVar = tuple[str history, str grammar, map[str,str] tokens, str field];
-     
+extend lang::java::syntax::BigJava;
+import lang::view::syntax::View;
+import lang::antlr::syntax::ANTLR;
+
+alias viewStruct = tuple[str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens];
+
 @doc{ 
 This is the main function of this application:
-Usage: generate(|project://Saga/examples/StackWithSource/StackInterface.java|,|project://Saga/examples/StackWithSource/StackImpl.java|);
-  or:  generate(|project://Saga/test/StackInterface.java|,|project://Saga/test/StackImpl.java|);
-} 
-public int generate(loc interface, loc implementation) {
-  if (interface.extension != "java" || implementation.extension != "java")
-    throw "unexpected arguments <grammar>, <interface>, <implementation>";
+Usage: generate(loc view);
+Example: generate(|project://Histories/test/StackHistory.view|);
+Files containing event classes and history class are written
+to the folder in which 'view' resides.
+}
 
-  println("Parsing java interface");
-  interfaceTree = parse(#start[CompilationUnit], interface).top;
-   
-  println("Generating communication event classes");
-  generateTokenClasses(interface, interfaceTree);
-  
-  println("Parsing java implementation");
-  implementationTree = parse(#start[CompilationUnit], implementation).top;
-   
-  println("Parsing communication views");
-  histories = getView(interfaceTree);
-  
-  for(historyVar hv <- histories) {
-    println("=============== Processing communication view: " + hv.history + " ===============");
-    println("Parsing ANTLR grammar file: " + hv.grammar + ".g");
-    grammarTree = parse(#start[ANTLR], interface[file=hv.grammar + ".g"]).top;
-    
-    println("Generating communication view class");
-    generateHistoryContainer(interface, interfaceTree, grammarTree, hv);
+public int main(list[str] p) {
+	for(str s <- p) {
+		generate(readTextValueString(#loc, "|<s>|"));
+	}
+	return 0;
+}
 
-    println("Weaving in tracing for history: " + hv.field);
-    implementationTree = weaveTracerCalls(implementationTree, interfaceTree, hv.tokens, hv.field);
+public void generate(loc view) {
+  if(view.extension != "view")
+    throw "expected .view extension of file <view>";
+
+  println("Parsing communication view");
+  h = extractView(view);
+ 
+  println("=============== Processing communication view: " + h.history + " ===============");
+  println("Parsing ANTLR grammar file: " + h.grammar + ".g");
+  grammarTree = parse(#start[ANTLR], view[file=h.grammar + ".g"]).top;
+
+  println("Generating tracing aspect");
+  loc aspectLoc = view[file=h.history+"Aspect.java"];
+  str historyAspect;
+  if(h.typeName != "") { // Local view
+  	historyAspect = localAspect(h, grammarTree);
+  } else { // Global view
+  	historyAspect = globalAspect(h, grammarTree);
   }
-  
-  println("=======================================================================");
-  println("Writing new implementation with history updates to disk");
-  writeFile(implementation, implementationTree);
-  
-  return 0;
+  writeFile(aspectLoc,historyAspect);
 }
 
-private CompilationUnit weaveTracerCalls(CompilationUnit implementationTree, CompilationUnit interfaceTree, map[str,str] tokens, str history) {
-   set[Identifier] methods = { getMethodName(h) | /MethodHeader h := interfaceTree};
-   
-   newTree = visit(implementationTree) {
-     case (MethodDeclaration) `<Modifier* ms> <MethodRes res> <Identifier id>(<{FormalParameter ","}* formals>) { <BlockStatement* stats> }` =>
-          (MethodDeclaration) `<Modifier* ms> <MethodRes res> <Identifier id>(<{FormalParameter ","}* formals>) { <BlockStatement* newstats> }`
-     when id in methods,
-          {Expression ","}* params := formalsToParams(formals),
-          BlockStatement* newstats := addHistoryUpdates(stats, id, res, history, params, tokens)
-   }
-   return newTree;
-}
-
-private {Expression ","}* formalsToParams({FormalParameter ","}* formals) {
-  result = ({Expression ","}*) ``;
-  for ((FormalParameter) `<Modifier* m> <Type t> <VariableDeclaratorId id>` <- formals) {
-    if(({Expression ","}*) `` := result) {
-      result = ({Expression ","}*) `<[Identifier] "<id>">`;
-    } else {
-      result = ({Expression ","}*) `<{Expression ","}* result>, <[Identifier] "<id>">`;
-    }
-  }
-  return result;
-}
-
-private BlockStatement* addHistoryUpdates(BlockStatement* stats, Identifier id, MethodRes res, str history, {Expression ","}* params, map[str,str] tokens) {
-  c = "call_" + toString(id); 
-  
-  if (c in tokens) {
-    stats = addCallUpdate(stats, id, history, params);
-  }
-  
-  r = "return_" + toString(id);
-  if (r in tokens) {
-    stats = addReturnUpdates(stats, id, res, history, params);
-  }
-  
-  return stats;
-}
-
-private BlockStatement* addCallUpdate(BlockStatement* stats, Identifier id, str history, {Expression ","}* params) {
-  return (BlockStatement*) `<[Identifier] history>.update(new <[Identifier] "call_<id>">(<{Expression ","}* params>));
-                            <stats>`;
-}
-
-private BlockStatement* addReturnUpdates(BlockStatement* stats, Identifier id, MethodRes res, str history, {Expression ","}* params) {
-  if ((MethodRes) `void` := res) {
-    stats = (BlockStatement*) `<stats>
-                               <[Identifier] history>.update(new <[Identifier] "return_<id>">(<{Expression ","}* params>));`;
-  } else {
-    stats = visit(stats) {
-    case (ReturnStatement) `return <Expression e>;` =>
-         (Statement)       `{<Type res> <[Identifier] "<history>_tmp"> = <Expression e>; <[Identifier] history>.update(new <[Identifier] "return_<id>">(<[Identifier] "<history>_tmp">, <{Expression ","}* params>)); return <[Identifier] "<history>_tmp">;}`
-    }
-  }
-  
-  return stats;
-}
-
-public void generateTokenClasses(loc target, CompilationUnit interface) {
-  set[MethodHeader] methods = { h | /MethodHeader h := interface };
-
-  for (MethodHeader h <- methods) {
-    writeFile(target[file="call_<getMethodName(h)>.java"], tokenClass(h, "call"));
-    writeFile(target[file="return_<getMethodName(h)>.java"], tokenClass(h, "return"));
-  }
-}
-
-public Identifier getMethodName(MethodHeader h) {
-  if ((MethodHeader) `<Modifier* a> <MethodRes b> <Identifier id> ( <{FormalParameter ","}* c>)` := h) {
-    return id;
-  }
-  rprintln(h);
-  throw "unexpected header <h>";
-}
-
-private str tokenClass(MethodHeader h, str callReturn) {
-  if ((MethodHeader) `<Modifier* _> <MethodRes res> <Identifier id> ( <{FormalParameter ","}* formals>)` := h) {
-
-    {FormalParameter ","}* params = formals;
-    if ((MethodRes) `void` !:= res && "return" := callReturn) {
-      params = ({FormalParameter ","}*) `<Type res><[VariableDeclaratorId] "result">,<{FormalParameter ","}* formals>`;
-    }
-
-    return "public class <callReturn>_<id> extends org.antlr.runtime.CommonToken {
-           '  private static final long serialVersionUID = 2L;
-           '
-           '  <for ((FormalParameter) `<Modifier* ms> <Type t> <VariableDeclaratorId id>` <- formals) {>private final <t> <id>;
-           '  public <t> <id>() {
-           '    return this.<id>;
+private str txtTokenClass({FormalParameter ","}* params, str className, str methodName) {
+	list[str] p = tail(tail(formalsToPrintables(params)));  // tail(tail(..)) removes caller and callee
+	str methodParams = intercalate(" + \", \" +",p);
+	return "public class <className> extends org.antlr.runtime.CommonToken {
+	       '  private static final long serialVersionUID = 3L;
+	       '
+	       '  <for (FormalParameter f <- params) {>
+	       '  private final <f.t> <f.v>;
+	       '  public <f.t> <f.v>() {
+	       '    return this.<f.v>;
+	       '  }
+	       '  <}>
+	       '
+	       '  public String toString() {
+	       '    return \"o\" + System.identityHashCode(caller) + \":o\" + System.identityHashCode(callee) + \".<methodName>(\" + <methodParams == "" ? "\"\"" : methodParams> + \")\";
            '  }
-           '  <}>
-           '
-           '  <if(!(formals == params)) {>
-           '  private final <res> result;
-           '  public <res> result() {
-           '    return this.result;
-           '  }
-           '  <}>
-           '  
-           '  public <callReturn>_<id>(<params>) {
-           '    super(-1);
-           '    <if(!(formals == params)) {>
-           '    this.result = result;
-           '    <}>
-           '    <for ((FormalParameter) `<Modifier* _> <Type _> <VariableDeclaratorId id>` <- formals) {>
-           '    this.<id> = <id>;
-           '    <}>
-           '  }
-           '}";
-  }
-  throw "unexpected methodhead <h>";
+	       '
+	       '  public <className>(<params>) {
+	       '    super(-1);
+	       '
+	       '    <for (FormalParameter f <- params) {>
+	       '    this.<f.v> = <f.v>;
+	       '    <}>
+	       '  }
+	       '}";
 }
 
-private set[historyVar] getView(CompilationUnit interface) {
-  set[historyVar] histories = {};
-  
-  for (/\/\/\s*<v:view.*>\n/ := "<interface>") {
-    View viewTree = parse(#View, v);
-    if ((View) `view <Identifier v> grammar <gram> { <{TokenDef ","}* tokens> }` := parse(#View, v)) {
+private str tokenClass(InEvent e, str typeName, str eventName) {
+	{FormalParameter ","}* params = e.h.d.p;
+	params = ({FormalParameter ","}*) `<[FormalParameter] "Object caller">, <[FormalParameter] "<typeName> callee">, <{FormalParameter ","}* params>`;
+	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
+	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <[FormalParameter] "<e.h.r> result">`;
+	}
+	
+	return txtTokenClass(params, eventName, "<e.h.d.id>");
+}
 
-      try {
-      for (/\/\*@<decl:.*>@\*\// := "<interface>") {
-          FieldDeclaration field = parse(#FieldDeclaration, trim(decl));
-        
-
-        if ((FieldDeclaration) `<Modifier* _> <[Identifier] v> <Identifier name> = <VariableInitializer _>;` := field) {
-          if(/<grammarName:.*>.g/ := "<gram>") {
-            histories = histories + {<"<v>", "<grammarName>", ( "<m>":"<tok>" | (TokenDef) `<Identifier m> <Identifier tok>` <- tokens), "<name>">};
-          } else {
-            throw "grammar filename must have .g extension";
-          }
-        }
-     }
-     }
-     catch ParseError(loc l): {
-        throw "parse error in field declaration \'<decl>\' at column <l.begin.column>";
-     }
-     
-     // throw "no history model variable found corresponding to communication view <v>";
-    }
-  }
-  
-  if(histories != {}) {
-    return histories;
-  } else {
-    throw "failed to retrieve communication view from interface";
-  }
+private str tokenClass(OutEvent e, str typeName, str eventName) {
+	{FormalParameter ","}* params = e.h.d.p;
+	params = ({FormalParameter ","}*) `<[FormalParameter] "<typeName == "" ? "Object" : typeName> caller">, <[FormalParameter] "<e.h.t> callee">, <{FormalParameter ","}* params>`;
+	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
+	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <[FormalParameter] "<e.h.r> result">`;
+	}
+	
+	return txtTokenClass(params, eventName, "<e.h.d.id>");
 }
 
 private {FormalParameter ","}* getAttributesFromGrammar(ANTLR grammar) {
@@ -213,25 +107,227 @@ private {FormalParameter ","}* getAttributesFromGrammar(ANTLR grammar) {
   throw "could not retrieve formals from start non-terminal in grammar";
 }
 
-private void generateHistoryContainer(loc target, CompilationUnit interface, ANTLR grammar, historyVar hv) {
-  {FormalParameter ","}* attributes = getAttributesFromGrammar(grammar);
-  
-  writeFile(target[file="<hv.history>.java"],
-            historyContainer(hv.history, hv.grammar, { h | /MethodHeader h := interface }, attributes, hv.tokens));
+
+
+
+private {Type ","}* formalsToTypes({FormalParameter ","}* formals) {
+	result = ({Type ","}*) ``;
+	for ((FormalParameter) f <- formals) {
+		if(({Type ","}*) `` := result) {
+			result = ({Type ","}*) `<[Type] "<f.t>">`;
+		} else {
+			result = ({Type ","}*) `<{Type ","}* result>, <[Type] "<f.t>">`;
+		}
+	}
+	return result;
 }
 
-private str historyContainer(str historyName, str grammarName, set[MethodHeader] methods, {FormalParameter ","}* attributes, map[str,str] tokens) {
+private {Expression ","}* formalsToParams({FormalParameter ","}* formals) {
+	result = ({Expression ","}*) ``;
+	for ((FormalParameter) f <- formals) {
+		if(({Expression ","}*) `` := result) {
+			result = ({Expression ","}*) `<[Identifier] "<f.v>">`;
+		} else {
+			result = ({Expression ","}*) `<{Expression ","}* result>, <[Identifier] "<f.v>">`;
+		}
+	}
+	return result;
+}
+
+private list[str] formalsToPrintables({FormalParameter ","}* formals) {
+	list[str] l = [];
+	for ((FormalParameter) f <- formals) {
+		if(f.t is ReferenceType) {
+			l += ["\"o\" + System.identityHashCode(<f.v>)"];
+		} else {
+			l += ["<f.v>"];
+		}
+	}
+	return l;
+}
+
+
+
+// Pointcut for incoming event in local history of object of type typeName
+private str pointcut(InEvent e, str typeName, str eventName) {
+	assert /(Modifier) `static` !:= e.h.m:
+	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
+	staticParams = e.h.d.p;
+	staticParams = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> cle">, <{FormalParameter ","}* staticParams>`;
+	params       = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* staticParams>`;
+
+	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
+	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
+	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
+	str histParams        = "<formalsToParams(staticParams)>" + (retNonVoidMethod ? ", ret" : "");
+
 return "
-       'import org.antlr.runtime.*;
-       'import java.util.ArrayList;
+       '<callRet>(<params>)<retNonVoid>:
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
+       '    h.get(cle).update(new <eventName>(clr, <histParams>));
+       '}
        '
-       'public class <historyName> implements TokenSource {
+       '<callRet>(<staticParams>)<retNonVoid>: // from static method
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
+       '    h.get(cle).update(new <eventName>(null, <histParams>));
+       '}
+       ";
+}
+
+// Pointcut for outgoing event in local history of object of type typeName
+private str pointcut(OutEvent e, str typeName, str eventName) {
+	params = e.h.d.p;
+	staticParams = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> clr">, <{FormalParameter ","}* params>`;
+	params       = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> clr">, <[FormalParameter] "<e.h.t> cle">, <{FormalParameter ","}* params>`;
+
+	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
+	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
+	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
+	str histParams        = "<formalsToParams(e.h.d.p)>" + (retNonVoidMethod ? ", ret" : "");
+
+	if(/(Modifier) `static` !:= e.h.m) { // non-static method
+return "
+       '<callRet>(<params>)<retNonVoid>:
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
+       '    h.get(clr).update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
+       '}";
+	} else { // static method
+return "
+       '<callRet>(<staticParams>)<retNonVoid>: // static method
+       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
+       '    h.get(clr).update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
+       '}
+       ";
+	}
+}
+
+// Pointcut for event in global history
+private str pointcut(OutEvent e, str eventName) {
+	staticParams1 = e.h.d.p;
+	staticParams2 = ({FormalParameter ","}*) `<[FormalParameter] "<e.h.t> cle">, <{FormalParameter ","}* staticParams1>`;
+	staticParams1 = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* staticParams1>`;
+	params       = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* staticParams2>`;
+
+	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
+	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
+	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
+	str histParams        = "<formalsToParams(e.h.d.p)>" + (retNonVoidMethod ? ", ret" : "");
+	if(/(Modifier) `static` !:= e.h.m) { // non-static method
+return "
+	   '<callRet>(<params>)<retNonVoid>: // from non-static method to non-static method
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
+       '    h.update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
+       '}
+       '
+       '<callRet>(<staticParams2>)<retNonVoid>: // from static method to non-static method
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
+       '    h.update(new <eventName>(null, cle<histParams != "" ? ", <histParams>" : "">));
+       '}";
+	} else {
+return "
+       '<callRet>(<staticParams1>)<retNonVoid>: // from non-static method to static method
+       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
+       '    h.update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
+       '}
+       '
+       '<callRet>(<e.h.d.p>)<retNonVoid>: // from static method to static method
+       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
+       '    h.update(new <eventName>(null, null<histParams != "" ? ", <histParams>" : "">));
+       '}
+       ";
+	}
+}
+
+private str localAspect(viewStruct hv, ANTLR grammar) {
+  {FormalParameter ","}* attributes = getAttributesFromGrammar(grammar);
+
+return "<grammar.h ? "">
+       'import java.util.IdentityHashMap; // stores local histories 
+       'import org.antlr.runtime.*; // for use in <hv.history>
+       'import java.util.ArrayList; // for use in <hv.history>
+       '
+       'aspect <hv.history>Aspect {
+       '
+       '    static IdentityHashMap\<<hv.typeName>, <hv.history>\> h = new IdentityHashMap\<<hv.typeName>, <hv.history>\>();
+       '
+       '///////////////////////////////////////////////////////
+       '/////////////////////// Event classes /////////////////
+       '///////////////////////////////////////////////////////
+       '<for (InEvent e <- hv.inTokens) {>
+       '    <tokenClass(e, hv.typeName, hv.inTokens[e].name)>
+       '<}>
+       '<for (OutEvent e <- hv.outTokens) {>
+       '    <tokenClass(e, hv.typeName, hv.outTokens[e].name)>
+       '<}>
+       '
+       '///////////////////////////////////////////////////////
+       '/////////////////////// History class /////////////////
+       '///////////////////////////////////////////////////////
+       '    <historyContainer(hv, attributes)>
+       '
+       '
+       '///////////////////////////////////////////////////////
+       '/////////////////////// Aspects ///////////////////////
+       '///////////////////////////////////////////////////////
+       '<for (InEvent e <- hv.inTokens) {>
+       '    <pointcut(e, hv.typeName, hv.inTokens[e].name)>
+       '<}>
+       '<for (OutEvent e <- hv.outTokens) {>
+       '    <pointcut(e, hv.typeName, hv.outTokens[e].name)>
+       '<}>
+       '
+       '    after() returning(<hv.typeName> o):
+       '      (call(*.new(..))) {
+       '        h.put(o,new <hv.history>());
+       '    }
+       '}";
+}
+
+private str globalAspect(viewStruct hv, ANTLR grammar) {
+  {FormalParameter ","}* attributes = getAttributesFromGrammar(grammar);
+
+return "<grammar.h ? "">
+       'import org.antlr.runtime.*; // for use in <hv.history>
+       'import java.util.ArrayList; // for use in <hv.history>
+       '
+       'aspect <hv.history>Aspect {
+       '
+       '    static <hv.history> h = new <hv.history>();
+       '
+       '///////////////////////////////////////////////////////
+       '/////////////////////// Event classes /////////////////
+       '///////////////////////////////////////////////////////
+       '<for (OutEvent e <- hv.outTokens) {>
+       '    <tokenClass(e, "", hv.outTokens[e].name)>
+       '<}>
+       '
+       '///////////////////////////////////////////////////////
+       '/////////////////////// History class /////////////////
+       '///////////////////////////////////////////////////////
+       '    <historyContainer(hv, attributes)>
+       '
+       '
+       '///////////////////////////////////////////////////////
+       '/////////////////////// Aspects ///////////////////////
+       '///////////////////////////////////////////////////////
+       '<for (OutEvent e <- hv.outTokens) {>
+       '    <pointcut(e, hv.outTokens[e].name)>
+       '<}>
+       '}";
+}
+
+private str historyContainer(viewStruct hv, {FormalParameter ","}* attributes) {
+return "
+       'public static class <hv.history> implements TokenSource {
+       '  private ArrayList\<String\> objects = new ArrayList\<String\>(); // for printing
+       '  private ArrayList\<String\> objectsTypes = new ArrayList\<String\>(); // for printing
+       '
        '  private ArrayList\<CommonToken\> _L = new ArrayList\<CommonToken\>();
        '  private Integer _currentToken;
-       '  <if ( ({FormalParameter ","}*) `<Modifier* _> <Type t> <VariableDeclaratorId _>` := attributes) {>private <t> _start; // Synthesized attributes of start non-terminal
-       '  <} else{><if (!(({FormalParameter ","}*) `` := attributes)) {>private <grammarName>Parser.start_return _start; // Synthesized attributes of start non-terminal<}><}>
-       '  
-       '  public <historyName>() {
+       '  <if ( ({FormalParameter ","}*) `<Modifier* _> <Type t> <VariableDeclaratorId _>` := attributes) {>private <t> _start; // Synthesized attribute of start non-terminal
+       '  <} else{><if (!(({FormalParameter ","}*) `` := attributes)) {>private <hv.grammar>Parser.start_return _start; // Synthesized attributes of start non-terminal<}><}>
+       '
+       '  public <hv.history>() {
        '    _L.add(new CommonToken(Token.EOF));
        '    _L.add(new CommonToken(Token.EOF));
        '    parse(); // the empty history
@@ -241,7 +337,17 @@ return "
        '  public String getSourceName() {
        '    return null;
        '  }
-       ' 
+       '
+       '  public void print() {
+       '	for(int i=0; i\<objects.size(); i++) {
+       '		System.out.println(objects.get(i) + \":\" + objectsTypes.get(i));
+       '	}
+       '	System.out.println(\"\");
+       '    for(int i=0; i\<_L.size()-2; i++) {
+       '      System.out.println(_L.get(i).toString());
+       '    }
+       '  }
+       '
        '  public CommonToken nextToken() {
        '    return _L.get(_currentToken++);
        '  }
@@ -250,7 +356,7 @@ return "
        '  private void parse() {
        '    _currentToken = 0;
        '    CommonTokenStream tokens = new CommonTokenStream(this);
-       '    <grammarName>Parser parser = new <grammarName>Parser(tokens);
+       '    <hv.grammar>Parser parser = new <hv.grammar>Parser(tokens);
        '
        '    try {
        '      <if (({FormalParameter ","}*) `` := attributes) {>
@@ -259,8 +365,27 @@ return "
        '      _start = parser.start();
        '      <}>
        '    } catch(RecognitionException r) {
-       '      System.err.println(\"=== ERROR! History violates event protocol structure specified in the grammar === \\n\");
-       '      //@ assert false; // Assertion Failure
+       '      <if(hv.typeName == "") {>
+       '      System.err.println(\"=== ERROR! Global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") violates protocol structure specified in <hv.grammar>.g === \\n\");
+       '      print();
+       '      System.err.println(\"-------------------------------------------\");
+       '      <} else {>
+       '      System.err.println(\"=== ERROR! Local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object violates protocol structure specified in <hv.grammar>.g === \\n\");
+       '      print();
+       '      System.err.println(\"-------------------------------------------\");
+       '      <}>
+       '      assert false; // Assertion Failure
+       '    } catch(AssertionError r) {
+       '      <if(hv.typeName == "") {>
+       '      System.err.println(\"=== Assertion error in global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") in grammar <hv.grammar>.g === \\n\");
+       '      print();
+       '      System.err.println(\"-------------------------------------------\");
+       '      <} else {>
+       '      System.err.println(\"=== Assertion error in local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object in grammar <hv.grammar>.g === \\n\");
+       '      print();
+       '      System.err.println(\"-------------------------------------------\");
+       '      <}>
+       '      assert false; // Assertion Failure
        '    }
        '  }
        '
@@ -268,29 +393,49 @@ return "
        '  public <t> <id>() {
        '    return _start;
        '  }
-       '  <} else {><for ((FormalParameter) `<Modifier* _> <Type t> <VariableDeclaratorId id>` <- attributes) {>
-       '  public <t> <id>() {
-       '    return _start.<id>;
+       '  <} else {><for (FormalParameter f <- attributes) {>
+       '  public <f.t> <f.v>() {
+       '    return _start.<f.v>;
        '  }
        '  <}><}>
        '
-       '  <for ((MethodHeader) `<Modifier* _> <MethodRes _> <Identifier id> ( <{FormalParameter ","}* _>)` <- methods) {
-          r = "return_" + toString(id); c = "call_" + toString(id);>
-       '  <if (c in tokens) /* store only if in view */ {>
-       '  public void update(<c> e) {
-       '       e.setType(<grammarName>Lexer.<tokens[c]>);
+       '  <for (InEvent e <- hv.inTokens) {>
+       '  public void update(<hv.inTokens[e].name> e) {
+       '       e.setType(<hv.grammar>Lexer.<hv.inTokens[e].token>);
        '       _L.add(_L.size()-2, e);
-       '       parse();
-       '  }
-       '  <}>
        '
-       '  <if (r in tokens) /* store only if in view */ {>
-       '  public void update(<r> e) {
-       '       e.setType(<grammarName>Lexer.<tokens[r]>);
-       '       _L.add(_L.size()-2, e);
+       '       String clr = \"o\" + System.identityHashCode(e.caller());
+       '       String cle = \"o\" + System.identityHashCode(e.callee());
+       '       if(!objects.contains(clr)) { // for printing
+       '           objects.add(clr);
+       '           objectsTypes.add(\"Object\");
+       '       }
+       '       if(!objects.contains(cle)) { // for printing
+       '           objects.add(cle);
+       '           objectsTypes.add(\"<hv.typeName>\");
+       '       }
+       '
        '       parse();
        '  }
        '  <}>
+       '  <for (OutEvent e <- hv.outTokens) {>
+       '  public void update(<hv.outTokens[e].name> e) {
+       '       e.setType(<hv.grammar>Lexer.<hv.outTokens[e].token>);
+       '       _L.add(_L.size()-2, e);
+       '
+       '       String clr = \"o\" + System.identityHashCode(e.caller());
+       '       String cle = \"o\" + System.identityHashCode(e.callee());
+       '       if(!objects.contains(clr)) { // for printing
+       '           objects.add(clr);
+       '           objectsTypes.add(\"<hv.typeName != "" ? hv.typeName : "Object">\");
+       '       }
+       '       if(!objects.contains(cle)) { // for printing
+       '           objects.add(cle);
+       '           objectsTypes.add(\"<e.h.t>\");
+       '       }
+       '
+       '       parse();
+       '  }
        '  <}>
        '}";
 }
