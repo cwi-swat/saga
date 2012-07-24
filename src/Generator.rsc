@@ -50,8 +50,8 @@ public void generate(loc view) {
   writeFile(aspectLoc,historyAspect);
 }
 
-private str txtTokenClass({FormalParameter ","}* params, str className, str methodName) {
-	list[str] p = tail(tail(formalsToPrintables(params)));  // tail(tail(..)) removes caller and callee
+private str txtTokenClass({FormalParameter ","}* params, str className, str methodName, str historyClass) {
+	list[str] p = tail(tail(formalsToPrintables(params, historyClass)));  // tail(tail(..)) removes caller and callee
 	str methodParams = intercalate(" + \", \" +",p);
 	return "public class <className> extends org.antlr.runtime.CommonToken {
 	       '  private static final long serialVersionUID = 3L;
@@ -64,7 +64,7 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
 	       '  <}>
 	       '
 	       '  public String toString() {
-	       '    return \"o\" + System.identityHashCode(caller) + \":o\" + System.identityHashCode(callee) + \".<methodName>(\" + <methodParams == "" ? "\"\"" : methodParams> + \")\";
+	       '    return \"o\" + <historyClass>.objToId.get(caller) + \":o\" + <historyClass>.objToId.get(callee) + \".<methodName>(\" + <methodParams == "" ? "\"\"" : methodParams> + \")\";
            '  }
 	       '
 	       '  public <className>(<params>) {
@@ -77,24 +77,24 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
 	       '}";
 }
 
-private str tokenClass(InEvent e, str typeName, str eventName) {
+private str tokenClass(InEvent e, str typeName, str eventName, str historyClass) {
 	{FormalParameter ","}* params = e.h.d.p;
 	params = ({FormalParameter ","}*) `<[FormalParameter] "Object caller">, <[FormalParameter] "<typeName> callee">, <{FormalParameter ","}* params>`;
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
 	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <[FormalParameter] "<e.h.r> result">`;
 	}
 	
-	return txtTokenClass(params, eventName, "<e.h.d.id>");
+	return txtTokenClass(params, eventName, "<e.h.d.id>", historyClass);
 }
 
-private str tokenClass(OutEvent e, str typeName, str eventName) {
+private str tokenClass(OutEvent e, str typeName, str eventName, str historyClass) {
 	{FormalParameter ","}* params = e.h.d.p;
 	params = ({FormalParameter ","}*) `<[FormalParameter] "<typeName == "" ? "Object" : typeName> caller">, <[FormalParameter] "<e.h.t> callee">, <{FormalParameter ","}* params>`;
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
 	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <[FormalParameter] "<e.h.r> result">`;
 	}
 	
-	return txtTokenClass(params, eventName, "<e.h.d.id>");
+	return txtTokenClass(params, eventName, "<e.h.d.id>", historyClass);
 }
 
 private {FormalParameter ","}* getAttributesFromGrammar(ANTLR grammar) {
@@ -134,11 +134,11 @@ private {Expression ","}* formalsToParams({FormalParameter ","}* formals) {
 	return result;
 }
 
-private list[str] formalsToPrintables({FormalParameter ","}* formals) {
+private list[str] formalsToPrintables({FormalParameter ","}* formals, str historyClass) {
 	list[str] l = [];
 	for ((FormalParameter) f <- formals) {
 		if(f.t is ReferenceType) {
-			l += ["\"o\" + System.identityHashCode(<f.v>)"];
+			l += ["\"o\" + <historyClass>.objToId.get(<f.v>)"];
 		} else {
 			l += ["<f.v>"];
 		}
@@ -161,15 +161,15 @@ private str pointcut(InEvent e, str typeName, str eventName) {
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
 	str histParams        = "<formalsToParams(staticParams)>" + (retNonVoidMethod ? ", ret" : "");
 
-return "
+return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<params>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    h.get(cle).update(new <eventName>(clr, <histParams>));
+       '    assert h.get(cle).update(new <eventName>(clr, <histParams>));
        '}
        '
        '<callRet>(<staticParams>)<retNonVoid>: // from static method
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    h.get(cle).update(new <eventName>(null, <histParams>));
+       '    assert h.get(cle).update(new <eventName>(null, <histParams>));
        '}
        ";
 }
@@ -183,19 +183,24 @@ private str pointcut(OutEvent e, str typeName, str eventName) {
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
-	str histParams        = "<formalsToParams(e.h.d.p)>" + (retNonVoidMethod ? ", ret" : "");
+	str histParams        = "<formalsToParams(e.h.d.p)>";
+	if(e.h.d.p == ({FormalParameter ","}*) ``) {
+		histParams        = (retNonVoidMethod ? "ret" : "");
+	} else {
+		histParams       += (retNonVoidMethod ? ", ret" : "");
+	}
 
 	if(/(Modifier) `static` !:= e.h.m) { // non-static method
-return "
+return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
        '<callRet>(<params>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    h.get(clr).update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
+       '    assert h.get(clr).update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
        '}";
 	} else { // static method
 return "
        '<callRet>(<staticParams>)<retNonVoid>: // static method
        '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
-       '    h.get(clr).update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
+       '    assert h.get(clr).update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
        '}
        ";
 	}
@@ -211,28 +216,34 @@ private str pointcut(OutEvent e, str eventName) {
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
-	str histParams        = "<formalsToParams(e.h.d.p)>" + (retNonVoidMethod ? ", ret" : "");
+	str histParams        = "<formalsToParams(e.h.d.p)>";
+	if(e.h.d.p == ({FormalParameter ","}*) ``) {
+		histParams        = (retNonVoidMethod ? "ret" : "");
+	} else {
+		histParams       += (retNonVoidMethod ? ", ret" : "");
+	}
+	
 	if(/(Modifier) `static` !:= e.h.m) { // non-static method
-return "
+return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
 	   '<callRet>(<params>)<retNonVoid>: // from non-static method to non-static method
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    h.update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
+       '    assert h.update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
        '}
        '
        '<callRet>(<staticParams2>)<retNonVoid>: // from static method to non-static method
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    h.update(new <eventName>(null, cle<histParams != "" ? ", <histParams>" : "">));
+       '    assert h.update(new <eventName>(null, cle<histParams != "" ? ", <histParams>" : "">));
        '}";
 	} else {
 return "
        '<callRet>(<staticParams1>)<retNonVoid>: // from non-static method to static method
        '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
-       '    h.update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
+       '    assert h.update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
        '}
        '
        '<callRet>(<e.h.d.p>)<retNonVoid>: // from static method to static method
        '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
-       '    h.update(new <eventName>(null, null<histParams != "" ? ", <histParams>" : "">));
+       '    assert h.update(new <eventName>(null, null<histParams != "" ? ", <histParams>" : "">));
        '}
        ";
 	}
@@ -242,9 +253,12 @@ private str localAspect(viewStruct hv, ANTLR grammar) {
   {FormalParameter ","}* attributes = getAttributesFromGrammar(grammar);
 
 return "<grammar.h ? "">
-       'import java.util.IdentityHashMap; // stores local histories 
+       'import java.util.IdentityHashMap; // stores local histories and objToId
        'import org.antlr.runtime.*; // for use in <hv.history>
        'import java.util.ArrayList; // for use in <hv.history>
+       'import java.util.Iterator; // for use in <hv.history>
+       'import java.util.HashSet; // for use in <hv.history>
+       'import java.util.HashMap; // for use in <hv.history>
        '
        'aspect <hv.history>Aspect {
        '
@@ -254,10 +268,10 @@ return "<grammar.h ? "">
        '/////////////////////// Event classes /////////////////
        '///////////////////////////////////////////////////////
        '<for (InEvent e <- hv.inTokens) {>
-       '    <tokenClass(e, hv.typeName, hv.inTokens[e].name)>
+       '    <tokenClass(e, hv.typeName, hv.inTokens[e].name, hv.history)>
        '<}>
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <tokenClass(e, hv.typeName, hv.outTokens[e].name)>
+       '    <tokenClass(e, hv.typeName, hv.outTokens[e].name, hv.history)>
        '<}>
        '
        '///////////////////////////////////////////////////////
@@ -287,8 +301,12 @@ private str globalAspect(viewStruct hv, ANTLR grammar) {
   {FormalParameter ","}* attributes = getAttributesFromGrammar(grammar);
 
 return "<grammar.h ? "">
+       'import java.util.IdentityHashMap; // stores local histories and objToId
        'import org.antlr.runtime.*; // for use in <hv.history>
        'import java.util.ArrayList; // for use in <hv.history>
+       'import java.util.Iterator; // for use in <hv.history>
+       'import java.util.HashSet; // for use in <hv.history>
+       'import java.util.HashMap; // for use in <hv.history>
        '
        'aspect <hv.history>Aspect {
        '
@@ -298,7 +316,7 @@ return "<grammar.h ? "">
        '/////////////////////// Event classes /////////////////
        '///////////////////////////////////////////////////////
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <tokenClass(e, "", hv.outTokens[e].name)>
+       '    <tokenClass(e, "", hv.outTokens[e].name, hv.history)>
        '<}>
        '
        '///////////////////////////////////////////////////////
@@ -316,11 +334,71 @@ return "<grammar.h ? "">
        '}";
 }
 
+private str updateMethod(viewStruct hv, str callRet, MethodRes retType, {FormalParameter ","}* params, str eventName, str token) {
+return "public boolean update(<eventName> e) {
+       '     System.err.println(\"UPDATE UPDATE UPDATE\");
+       '     e.setType(<hv.grammar>Lexer.<token>);
+       '     _L.add(_L.size()-2, e);
+       '
+       '
+       '     if(!objToId.containsKey(e.caller())) { // for printing
+       '         objToId.put(e.caller(), objToId.size());
+       '         idToObj.put(idToObj.size(),e.caller());
+       '     }
+       '     if(!objToId.containsKey(e.callee())) { // for printing
+       '         objToId.put(e.callee(), objToId.size());
+       '         idToObj.put(idToObj.size(),e.callee());
+       '     }
+       '     <if(callRet == "return" && retType != (MethodRes) `void`) {>
+       '     if(!objToId.containsKey(e.result())) { // for printing
+       '         objToId.put(e.result(), objToId.size());
+       '         idToObj.put(idToObj.size(),e.result());
+       '     }           
+       '     <}>
+       '     <for(FormalParameter f <- params) {>
+       '     if(!objToId.containsKey(e.<f.v>())) { // for printing
+       '         objToId.put(e.<f.v>(), objToId.size());
+       '         idToObj.put(idToObj.size(),e.<f.v>());
+       '     }
+       '     <}>
+       '     actors.add(objToId.get(e.caller()));
+       '     actors.add(objToId.get(e.callee()));
+       '
+       '     try {
+       '         parse();
+       '     } catch(RecognitionException r) {
+       '         <if(hv.typeName == "") {>
+       '         System.err.println(\"=== ERROR! Global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") violates protocol structure specified in <hv.grammar>.g === \\n\");
+       '         print();
+       '         System.err.println(\"-------------------------------------------\");
+       '         <} else {>
+       '         System.err.println(\"=== ERROR! Local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object violates protocol structure specified in <hv.grammar>.g === \\n\");
+       '         print();
+       '         System.err.println(\"-------------------------------------------\");
+       '         <}>
+       '         return false; // Assertion Failure
+       '     } catch(AssertionError r) {
+       '         <if(hv.typeName == "") {>
+       '         System.err.println(\"=== Assertion error in global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") in grammar <hv.grammar>.g === \\n\");
+       '         print();
+       '         System.err.println(\"-------------------------------------------\");
+       '         <} else {>
+       '         System.err.println(\"=== Assertion error in local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object in grammar <hv.grammar>.g === \\n\");
+       '         print();
+       '         System.err.println(\"-------------------------------------------\");
+       '         <}>
+       '         return false; // Assertion Failure
+       '    }
+       '    return true;
+       '}";
+}
+
 private str historyContainer(viewStruct hv, {FormalParameter ","}* attributes) {
 return "
        'public static class <hv.history> implements TokenSource {
-       '  private ArrayList\<String\> objects = new ArrayList\<String\>(); // for printing
-       '  private ArrayList\<String\> objectsTypes = new ArrayList\<String\>(); // for printing
+       '  public  static IdentityHashMap\<Object, Integer\> objToId = new IdentityHashMap\<Object, Integer\>();
+       '  public  static HashMap\<Integer, Object\> idToObj = new HashMap\<Integer, Object\>();
+       '  private HashSet\<Integer\> actors = new HashSet\<Integer\>();
        '
        '  private ArrayList\<CommonToken\> _L = new ArrayList\<CommonToken\>();
        '  private Integer _currentToken;
@@ -330,7 +408,15 @@ return "
        '  public <hv.history>() {
        '    _L.add(new CommonToken(Token.EOF));
        '    _L.add(new CommonToken(Token.EOF));
-       '    parse(); // the empty history
+       '    try {
+       '        parse(); // the empty history
+       '    } catch(RecognitionException e) {
+       '        System.err.println(\"=== ERROR! grammar <hv.grammar>.g does not accept the empty history\");
+       '	    assert false;
+       '    } catch(AssertionError r) {
+       '        System.err.println(\"=== ERROR! grammar <hv.grammar>.g does not accept the empty history\");
+       '	    assert false;
+       '    }
        '  }
        '
        '  // Implemented for TokenSource interface
@@ -339,8 +425,10 @@ return "
        '  }
        '
        '  public void print() {
-       '	for(int i=0; i\<objects.size(); i++) {
-       '		System.out.println(objects.get(i) + \":\" + objectsTypes.get(i));
+       '    Iterator\<Integer\> it = actors.iterator();
+       '	while(it.hasNext()) {
+       '		Integer objId = it.next();
+       '		System.out.println(\"o\" + objId + \":\" + idToObj.get(objId).getClass().getName());
        '	}
        '	System.out.println(\"\");
        '    for(int i=0; i\<_L.size()-2; i++) {
@@ -353,40 +441,16 @@ return "
        '  }
        '
        '  // Parse the history in antlr and set attribute values
-       '  private void parse() {
+       '  private void parse() throws RecognitionException {
        '    _currentToken = 0;
        '    CommonTokenStream tokens = new CommonTokenStream(this);
        '    <hv.grammar>Parser parser = new <hv.grammar>Parser(tokens);
        '
-       '    try {
-       '      <if (({FormalParameter ","}*) `` := attributes) {>
-       '      parser.start();
-       '      <} else {>
-       '      _start = parser.start();
-       '      <}>
-       '    } catch(RecognitionException r) {
-       '      <if(hv.typeName == "") {>
-       '      System.err.println(\"=== ERROR! Global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") violates protocol structure specified in <hv.grammar>.g === \\n\");
-       '      print();
-       '      System.err.println(\"-------------------------------------------\");
-       '      <} else {>
-       '      System.err.println(\"=== ERROR! Local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object violates protocol structure specified in <hv.grammar>.g === \\n\");
-       '      print();
-       '      System.err.println(\"-------------------------------------------\");
-       '      <}>
-       '      assert false; // Assertion Failure
-       '    } catch(AssertionError r) {
-       '      <if(hv.typeName == "") {>
-       '      System.err.println(\"=== Assertion error in global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") in grammar <hv.grammar>.g === \\n\");
-       '      print();
-       '      System.err.println(\"-------------------------------------------\");
-       '      <} else {>
-       '      System.err.println(\"=== Assertion error in local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object in grammar <hv.grammar>.g === \\n\");
-       '      print();
-       '      System.err.println(\"-------------------------------------------\");
-       '      <}>
-       '      assert false; // Assertion Failure
-       '    }
+       '    <if (({FormalParameter ","}*) `` := attributes) {>
+       '    parser.start();
+       '    <} else {>
+       '    _start = parser.start();
+       '    <}>
        '  }
        '
        '  <if ( ({FormalParameter ","}*) `<Modifier* _> <Type t> <VariableDeclaratorId id>` := attributes) {>
@@ -400,42 +464,10 @@ return "
        '  <}><}>
        '
        '  <for (InEvent e <- hv.inTokens) {>
-       '  public void update(<hv.inTokens[e].name> e) {
-       '       e.setType(<hv.grammar>Lexer.<hv.inTokens[e].token>);
-       '       _L.add(_L.size()-2, e);
-       '
-       '       String clr = \"o\" + System.identityHashCode(e.caller());
-       '       String cle = \"o\" + System.identityHashCode(e.callee());
-       '       if(!objects.contains(clr)) { // for printing
-       '           objects.add(clr);
-       '           objectsTypes.add(\"Object\");
-       '       }
-       '       if(!objects.contains(cle)) { // for printing
-       '           objects.add(cle);
-       '           objectsTypes.add(\"<hv.typeName>\");
-       '       }
-       '
-       '       parse();
-       '  }
+       '  <updateMethod(hv, "<e.cr>", e.h.r, e.h.d.p, hv.inTokens[e].name, hv.inTokens[e].token)>
        '  <}>
        '  <for (OutEvent e <- hv.outTokens) {>
-       '  public void update(<hv.outTokens[e].name> e) {
-       '       e.setType(<hv.grammar>Lexer.<hv.outTokens[e].token>);
-       '       _L.add(_L.size()-2, e);
-       '
-       '       String clr = \"o\" + System.identityHashCode(e.caller());
-       '       String cle = \"o\" + System.identityHashCode(e.callee());
-       '       if(!objects.contains(clr)) { // for printing
-       '           objects.add(clr);
-       '           objectsTypes.add(\"<hv.typeName != "" ? hv.typeName : "Object">\");
-       '       }
-       '       if(!objects.contains(cle)) { // for printing
-       '           objects.add(cle);
-       '           objectsTypes.add(\"<e.h.t>\");
-       '       }
-       '
-       '       parse();
-       '  }
+       '  <updateMethod(hv, "<e.cr>", e.h.r, e.h.d.p, hv.outTokens[e].name, hv.outTokens[e].token)>
        '  <}>
        '}";
 }
