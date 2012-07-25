@@ -149,7 +149,7 @@ private list[str] formalsToPrintables({FormalParameter ","}* formals, str histor
 
 
 // Pointcut for incoming event in local history of object of type typeName
-private str pointcut(InEvent e, str typeName, str eventName) {
+private str pointcut(InEvent e, str typeName, str eventName, str aspectName) {
 	assert /(Modifier) `static` !:= e.h.m:
 	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
 	staticParams = e.h.d.p;
@@ -163,19 +163,21 @@ private str pointcut(InEvent e, str typeName, str eventName) {
 
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<params>)<retNonVoid>:
-       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    assert h.get(cle).update(new <eventName>(clr, <histParams>));
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
+       '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    h.get(cle).update(new <eventName>(clr, <histParams>));
        '}
        '
        '<callRet>(<staticParams>)<retNonVoid>: // from static method
-       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    assert h.get(cle).update(new <eventName>(null, <histParams>));
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)
+       '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    h.get(cle).update(new <eventName>(null, <histParams>));
        '}
        ";
 }
 
 // Pointcut for outgoing event in local history of object of type typeName
-private str pointcut(OutEvent e, str typeName, str eventName) {
+private str pointcut(OutEvent e, str typeName, str eventName, str aspectName) {
 	params = e.h.d.p;
 	staticParams = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> clr">, <{FormalParameter ","}* params>`;
 	params       = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> clr">, <[FormalParameter] "<e.h.t> cle">, <{FormalParameter ","}* params>`;
@@ -193,21 +195,23 @@ private str pointcut(OutEvent e, str typeName, str eventName) {
 	if(/(Modifier) `static` !:= e.h.m) { // non-static method
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
        '<callRet>(<params>)<retNonVoid>:
-       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    assert h.get(clr).update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
+       '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    h.get(clr).update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
        '}";
 	} else { // static method
 return "
        '<callRet>(<staticParams>)<retNonVoid>: // static method
-       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
-       '    assert h.get(clr).update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
+       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
+       '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    h.get(clr).update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
        '}
        ";
 	}
 }
 
 // Pointcut for event in global history
-private str pointcut(OutEvent e, str eventName) {
+private str pointcut(OutEvent e, str eventName, str aspectName) {
 	staticParams1 = e.h.d.p;
 	staticParams2 = ({FormalParameter ","}*) `<[FormalParameter] "<e.h.t> cle">, <{FormalParameter ","}* staticParams1>`;
 	staticParams1 = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* staticParams1>`;
@@ -226,24 +230,28 @@ private str pointcut(OutEvent e, str eventName) {
 	if(/(Modifier) `static` !:= e.h.m) { // non-static method
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
 	   '<callRet>(<params>)<retNonVoid>: // from non-static method to non-static method
-       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    assert h.update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
+       '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    h.update(new <eventName>(clr, cle<histParams != "" ? ", <histParams>" : "">));
        '}
        '
        '<callRet>(<staticParams2>)<retNonVoid>: // from static method to non-static method
-       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)) {
-       '    assert h.update(new <eventName>(null, cle<histParams != "" ? ", <histParams>" : "">));
+       '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)
+       '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    h.update(new <eventName>(null, cle<histParams != "" ? ", <histParams>" : "">));
        '}";
 	} else {
 return "
        '<callRet>(<staticParams1>)<retNonVoid>: // from non-static method to static method
-       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
-       '    assert h.update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
+       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
+       '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    h.update(new <eventName>(clr, null<histParams != "" ? ", <histParams>" : "">));
        '}
        '
        '<callRet>(<e.h.d.p>)<retNonVoid>: // from static method to static method
-       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && !target(Object) && args(<formalsToParams(e.h.d.p)>)) {
-       '    assert h.update(new <eventName>(null, null<histParams != "" ? ", <histParams>" : "">));
+       '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(<formalsToTypes(e.h.d.p)>)) && !this(Object) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
+       '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    h.update(new <eventName>(null, null<histParams != "" ? ", <histParams>" : "">));
        '}
        ";
 	}
@@ -284,10 +292,10 @@ return "<grammar.h ? "">
        '/////////////////////// Aspects ///////////////////////
        '///////////////////////////////////////////////////////
        '<for (InEvent e <- hv.inTokens) {>
-       '    <pointcut(e, hv.typeName, hv.inTokens[e].name)>
+       '    <pointcut(e, hv.typeName, hv.inTokens[e].name, "<hv.history>Aspect")>
        '<}>
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <pointcut(e, hv.typeName, hv.outTokens[e].name)>
+       '    <pointcut(e, hv.typeName, hv.outTokens[e].name, "<hv.history>Aspect")>
        '<}>
        '
        '    after() returning(<hv.typeName> o):
@@ -301,7 +309,7 @@ private str globalAspect(viewStruct hv, ANTLR grammar) {
   {FormalParameter ","}* attributes = getAttributesFromGrammar(grammar);
 
 return "<grammar.h ? "">
-       'import java.util.IdentityHashMap; // stores local histories and objToId
+       'import java.util.IdentityHashMap; // for use in <hv.history>
        'import org.antlr.runtime.*; // for use in <hv.history>
        'import java.util.ArrayList; // for use in <hv.history>
        'import java.util.Iterator; // for use in <hv.history>
@@ -329,15 +337,14 @@ return "<grammar.h ? "">
        '/////////////////////// Aspects ///////////////////////
        '///////////////////////////////////////////////////////
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <pointcut(e, hv.outTokens[e].name)>
+       '    <pointcut(e, hv.outTokens[e].name, "<hv.history>Aspect")>
        '<}>
        '}";
 }
 
-private str updateMethod(viewStruct hv, str callRet, MethodRes retType, {FormalParameter ","}* params, str eventName, str token) {
-return "public boolean update(<eventName> e) {
-       '     System.err.println(\"UPDATE UPDATE UPDATE\");
-       '     e.setType(<hv.grammar>Lexer.<token>);
+private str updateMethod(str grammarName, str callRet, MethodRes retType, {FormalParameter ","}* params, str eventName, str token) {
+return "public void update(<eventName> e) {
+       '     e.setType(<grammarName>Lexer.<token>);
        '     _L.add(_L.size()-2, e);
        '
        '
@@ -364,32 +371,7 @@ return "public boolean update(<eventName> e) {
        '     actors.add(objToId.get(e.caller()));
        '     actors.add(objToId.get(e.callee()));
        '
-       '     try {
-       '         parse();
-       '     } catch(RecognitionException r) {
-       '         <if(hv.typeName == "") {>
-       '         System.err.println(\"=== ERROR! Global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") violates protocol structure specified in <hv.grammar>.g === \\n\");
-       '         print();
-       '         System.err.println(\"-------------------------------------------\");
-       '         <} else {>
-       '         System.err.println(\"=== ERROR! Local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object violates protocol structure specified in <hv.grammar>.g === \\n\");
-       '         print();
-       '         System.err.println(\"-------------------------------------------\");
-       '         <}>
-       '         return false; // Assertion Failure
-       '     } catch(AssertionError r) {
-       '         <if(hv.typeName == "") {>
-       '         System.err.println(\"=== Assertion error in global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") in grammar <hv.grammar>.g === \\n\");
-       '         print();
-       '         System.err.println(\"-------------------------------------------\");
-       '         <} else {>
-       '         System.err.println(\"=== Assertion error in local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object in grammar <hv.grammar>.g === \\n\");
-       '         print();
-       '         System.err.println(\"-------------------------------------------\");
-       '         <}>
-       '         return false; // Assertion Failure
-       '    }
-       '    return true;
+       '     parse();
        '}";
 }
 
@@ -408,15 +390,8 @@ return "
        '  public <hv.history>() {
        '    _L.add(new CommonToken(Token.EOF));
        '    _L.add(new CommonToken(Token.EOF));
-       '    try {
-       '        parse(); // the empty history
-       '    } catch(RecognitionException e) {
-       '        System.err.println(\"=== ERROR! grammar <hv.grammar>.g does not accept the empty history\");
-       '	    assert false;
-       '    } catch(AssertionError r) {
-       '        System.err.println(\"=== ERROR! grammar <hv.grammar>.g does not accept the empty history\");
-       '	    assert false;
-       '    }
+       '
+       '    parse(); // the empty history
        '  }
        '
        '  // Implemented for TokenSource interface
@@ -441,16 +416,40 @@ return "
        '  }
        '
        '  // Parse the history in antlr and set attribute values
-       '  private void parse() throws RecognitionException {
+       '  private void parse() {
        '    _currentToken = 0;
        '    CommonTokenStream tokens = new CommonTokenStream(this);
        '    <hv.grammar>Parser parser = new <hv.grammar>Parser(tokens);
        '
-       '    <if (({FormalParameter ","}*) `` := attributes) {>
-       '    parser.start();
-       '    <} else {>
-       '    _start = parser.start();
-       '    <}>
+       '    try {
+       '      <if (({FormalParameter ","}*) `` := attributes) {>
+       '      parser.start();
+       '      <} else {>
+       '      _start = parser.start();
+       '      <}>
+       '    } catch(RecognitionException r) {
+       '        <if(hv.typeName == "") {>
+       '        System.err.println(\"=== ERROR! Global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") violates protocol structure specified in <hv.grammar>.g === \\n\");
+       '        print();
+       '        System.err.println(\"-------------------------------------------\");
+       '        <} else {>
+       '        System.err.println(\"=== ERROR! Local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object violates protocol structure specified in <hv.grammar>.g === \\n\");
+       '        print();
+       '        System.err.println(\"-------------------------------------------\");
+       '        <}>
+       '        assert false; // Assertion Failure
+       '    } catch(AssertionError r) {
+       '        <if(hv.typeName == "") {>
+       '        System.err.println(\"=== Assertion error in global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") in grammar <hv.grammar>.g === \\n\");
+       '        print();
+       '        System.err.println(\"-------------------------------------------\");
+       '        <} else {>
+       '        System.err.println(\"=== Assertion error in local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object in grammar <hv.grammar>.g === \\n\");
+       '        print();
+       '        System.err.println(\"-------------------------------------------\");
+       '        <}>
+       '        assert false; // Assertion Failure
+       '    }
        '  }
        '
        '  <if ( ({FormalParameter ","}*) `<Modifier* _> <Type t> <VariableDeclaratorId id>` := attributes) {>
@@ -464,10 +463,10 @@ return "
        '  <}><}>
        '
        '  <for (InEvent e <- hv.inTokens) {>
-       '  <updateMethod(hv, "<e.cr>", e.h.r, e.h.d.p, hv.inTokens[e].name, hv.inTokens[e].token)>
+       '  <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p, hv.inTokens[e].name, hv.inTokens[e].token)>
        '  <}>
        '  <for (OutEvent e <- hv.outTokens) {>
-       '  <updateMethod(hv, "<e.cr>", e.h.r, e.h.d.p, hv.outTokens[e].name, hv.outTokens[e].token)>
+       '  <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p, hv.outTokens[e].name, hv.outTokens[e].token)>
        '  <}>
        '}";
 }
