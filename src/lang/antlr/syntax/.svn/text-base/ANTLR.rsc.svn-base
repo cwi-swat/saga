@@ -1,7 +1,7 @@
-module lang::antlr::\syntax::ANTLR
+module lang::antlr::syntax::ANTLR
 
 extend lang::std::Whitespace;
-extend lang::java::\syntax::BigJava;
+extend lang::java::syntax::BigJava;
 import ParseTree;
 
 
@@ -24,7 +24,7 @@ lexical Word
 
 syntax Thing 
   =  Word \ "start" \ "@header"
-  |  "start" "returns" "[" FormalParameters "]" /* Word+ ":" */
+  |  "start" "returns" "[" {FormalParameter ","}* "]" /* Word+ ":" */
   |  "start" () !>> "returns"                                                  
   ;
   

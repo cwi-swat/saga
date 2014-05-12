@@ -1,6 +1,6 @@
-module lang::view::\syntax::View
+module lang::view::syntax::View
 
-extend lang::java::\syntax::BigJava;
+extend lang::java::syntax::BigJava;
 import ParseTree; // for parse()
 import Exception; // for catching ParseError
 
@@ -38,11 +38,11 @@ syntax GlobalMethodHeader
   ;
   
 syntax ConsHeader
-  = Modifier* m "new" "(" FormalParameters p ")" Throws? th
+  = Modifier* m "new" "(" {FormalParameter ","}* p ")" Throws? th
   ;
   
 syntax GlobalConsHeader
-  = Modifier* m ClassOrInterfaceType t "." "new" "(" FormalParameters p ")" Throws? th
+  = Modifier* m ClassOrInterfaceType t "." "new" "(" {FormalParameter ","}* p ")" Throws? th
   ;
 
 
