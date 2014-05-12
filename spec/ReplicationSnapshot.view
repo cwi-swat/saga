@@ -1,0 +1,5 @@
+local view ReplicationSnapshotHistory grammar ReplicationSnapshot.g specifies com.fredhopper.replication.server.ReplicationSnapshot { 
+	call void refreshSnapshot() REFRESH, 
+	call void clearSnapshot() CLEAR 
+}
+

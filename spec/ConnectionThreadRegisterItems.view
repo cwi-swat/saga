@@ -1,0 +1,21 @@
+local view ConnectionThreadRegisterItemsHistory 
+grammar ConnectionThreadRegisterItems.g 
+specifies com.fredhopper.replication.server.ConnectionThread {
+	
+	call List registerItems(String aScheduleName,
+			DataInputStream clientInput,
+			DataOutputStream clientOutput) REGISTER,
+			
+	return List registerItems(String aScheduleName,
+			DataInputStream clientInput,
+			DataOutputStream clientOutput) ITEMS,
+
+	return ReplicationSnapshot SyncServer.getReplicationSnapshot() SNAPSHOT,
+	
+	call List ReplicationSnapshot.getItems(String schedule) LIST,
+	
+	return List ReplicationSnapshot.getItems(String schedule) LISTITEMS,
+	
+	call static void StreamUtil.writeStringUTFUtility(DataOutputStream stream, String s) WRITE
+	
+}

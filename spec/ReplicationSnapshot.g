@@ -1,0 +1,25 @@
+grammar ReplicationSnapshot;
+
+@header {
+import com.fredhopper.*;
+}
+
+@rulecatch {
+catch(RecognitionException e) {
+  throw e;
+}
+}
+
+//////////////////////// start ::= s EOF//////////////////////////////////
+start : s EOF;
+
+//////////////////////// s ::= /\ | REFRESH t //////////////////////////
+s : REFRESH t | ;
+
+//////////////////////// t ::= /\ | CLEAR s //////////////////////////
+t : CLEAR  s | ;
+
+////////////////////////////////////////////////
+
+REFRESH: 'a';
+CLEAR: 'b';

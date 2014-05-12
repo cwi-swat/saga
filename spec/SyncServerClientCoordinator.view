@@ -1,0 +1,4 @@
+local view SyncServerClientCoordinatorHistory grammar SyncServerClientCoordinator.g specifies com.fredhopper.replication.server.SyncServerClientCoordinator { 
+	call void startNonAtomicReplicationUpdate(SyncClientProxy thread) START, 
+	call void finishNonAtomicReplicationUpdate(SyncClientProxy thread) FINISH
+}
