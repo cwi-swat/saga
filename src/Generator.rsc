@@ -6,10 +6,10 @@ import IO; // for println, writeFile
 import ValueIO; // for readTextValueString
 import List; // for intercalate, tail
 import String; // for trim
-
-extend lang::java::syntax::BigJava;
-import lang::view::syntax::View;
-import lang::antlr::syntax::ANTLR;
+ 
+extend lang::java::\syntax::BigJava;
+import lang::view::\syntax::View;
+import lang::antlr::\syntax::ANTLR;
 
 alias viewStruct = tuple[str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens];
 

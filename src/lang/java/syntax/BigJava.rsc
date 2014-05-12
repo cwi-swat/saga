@@ -1,4 +1,4 @@
-module lang::java::syntax::BigJava 
+module lang::java::\syntax::BigJava 
 
 syntax StaticInitializer
   =  static1: "static" !>> [a-z A-Z 0-9 _] Block 

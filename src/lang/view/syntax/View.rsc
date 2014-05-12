@@ -1,6 +1,7 @@
-module lang::view::syntax::View
+module lang::view::\syntax::View
 
-extend lang::java::syntax::BigJava;
+extend lang::java::\syntax::BigJava;
+
 import ParseTree; // for parse()
 import Exception; // for catching ParseError
 
@@ -25,7 +26,7 @@ syntax GlobalTokenDef
 
 syntax InEvent
   = ("call" | "return") cr MethodHeader h
-  ;
+  ; 
 
 syntax OutEvent
   = ("call" | "return") cr GlobalMethodHeader h
@@ -88,9 +89,6 @@ private viewStruct generateUniqueEventNames(viewStruct hv) {
 	}
 	return hv;
 }
-
-
-
 
 public start[View] view(str s, loc l) {
   return parse(#start[View], s, l);

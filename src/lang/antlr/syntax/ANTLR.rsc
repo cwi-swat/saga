@@ -1,7 +1,7 @@
-module lang::antlr::syntax::ANTLR
+module lang::antlr::\syntax::ANTLR
 
 extend lang::std::Whitespace;
-extend lang::java::syntax::BigJava;
+extend lang::java::\syntax::BigJava;
 import ParseTree;
 
 
