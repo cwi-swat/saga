@@ -79,17 +79,23 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
 
 private str tokenClassCons(InEvent e, str typeName, str eventName, str historyClass) {
 	{FormalParameter ","}* params = e.h.p;
-	params = ({FormalParameter ","}*) `<[FormalParameter] "Object caller">, <[FormalParameter] "<typeName> callee">, <{FormalParameter ","}* params>`;
-	params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <[FormalParameter] "<typeName> result">`;
+	caller = [FormalParameter] "Object caller";
+	calee = [FormalParameter] "<typeName> callee";
+	params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
+	result = [FormalParameter] "<typeName> result";
+	params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	
 	return txtTokenClass(params, eventName, "new_<typeName>", historyClass);
 }
 
 private str tokenClassMethod(InEvent e, str typeName, str eventName, str historyClass) {
 	{FormalParameter ","}* params = e.h.d.p;
-	params = ({FormalParameter ","}*) `<[FormalParameter] "Object caller">, <[FormalParameter] "<typeName> callee">, <{FormalParameter ","}* params>`;
+	caller = [FormalParameter] "Object caller";
+    calee = [FormalParameter] "<typeName> callee";
+	params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
-	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <[FormalParameter] "<e.h.r> result">`;
+	  result = [FormalParameter] "<typeName> result";
+	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	}
 	
 	return txtTokenClass(params, eventName, "<e.h.d.id>", historyClass);
@@ -97,9 +103,12 @@ private str tokenClassMethod(InEvent e, str typeName, str eventName, str history
 
 private str tokenClassCons(OutEvent e, str typeName, str eventName, str historyClass) {
 	{FormalParameter ","}* params = e.h.p;
-	params = ({FormalParameter ","}*) `<[FormalParameter] "<typeName == "" ? "Object" : typeName> caller">, <[FormalParameter] "<e.h.t> callee">, <{FormalParameter ","}* params>`;
+	caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
+	callee = [FormalParameter] "<e.h.t> callee";
+	params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
 	if ("return" == "<e.cr>") {
-	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <[FormalParameter] "<e.h.t> result">`;
+	  result = <[FormalParameter] "<e.h.t> result">;
+	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	}
 	
 	return txtTokenClass(params, eventName, "new_<e.h.t>", historyClass);
@@ -107,9 +116,12 @@ private str tokenClassCons(OutEvent e, str typeName, str eventName, str historyC
 
 private str tokenClassMethod(OutEvent e, str typeName, str eventName, str historyClass) {
 	{FormalParameter ","}* params = e.h.d.p;
-	params = ({FormalParameter ","}*) `<[FormalParameter] "<typeName == "" ? "Object" : typeName> caller">, <[FormalParameter] "<e.h.t> callee">, <{FormalParameter ","}* params>`;
+	caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
+    callee = [FormalParameter] "<e.h.t> callee";
+	params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
-	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <[FormalParameter] "<e.h.r> result">`;
+	  result = [FormalParameter] "<e.h.r> result";
+	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	}
 	
 	return txtTokenClass(params, eventName, "<e.h.d.id>", historyClass);
@@ -131,10 +143,11 @@ private {FormalParameter ","}* getAttributesFromGrammar(ANTLR grammar) {
 private {Type ","}* formalsToTypes({FormalParameter ","}* formals) {
 	result = ({Type ","}*) ``;
 	for ((FormalParameter) f <- formals) {
-		if(({Type ","}*) `` := result) {
-			result = ({Type ","}*) `<[Type] "<f.t>">`;
+	    formal = [Type] "<f.t>";
+		if(({Type ","}*) `` := result) {   
+			result = ({Type ","}*) `<Type formal>`;
 		} else {
-			result = ({Type ","}*) `<{Type ","}* result>, <[Type] "<f.t>">`;
+			result = ({Type ","}*) `<{Type ","}* result>, <Type formal>`;
 		}
 	}
 	return result;
@@ -143,10 +156,11 @@ private {Type ","}* formalsToTypes({FormalParameter ","}* formals) {
 private {Expression ","}* formalsToParams({FormalParameter ","}* formals) {
 	result = ({Expression ","}*) ``;
 	for ((FormalParameter) f <- formals) {
+	    actual = [Identifier] "<f.v>";
 		if(({Expression ","}*) `` := result) {
-			result = ({Expression ","}*) `<[Identifier] "<f.v>">`;
+			result = ({Expression ","}*) `<Identifier actual>`;
 		} else {
-			result = ({Expression ","}*) `<{Expression ","}* result>, <[Identifier] "<f.v>">`;
+			result = ({Expression ","}*) `<{Expression ","}* result>, <Identifier actual>`;
 		}
 	}
 	return result;
@@ -204,7 +218,8 @@ private str pointcutCons(InEvent e, str typeName, str eventName, str aspectName)
 	assert /(Modifier) `static` !:= e.h.m:
 	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
 	staticParams = e.h.p;
-	params       = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* staticParams>`;
+	clr = [FormalParameter] "Object clr";
+	params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
 
 	str histParams = (({FormalParameter ","}*) `` != e.h.p) ? "<formalsToParams(e.h.p)>, ret" : "ret";
 
@@ -228,8 +243,10 @@ private str pointcutMethod(InEvent e, str typeName, str eventName, str aspectNam
 	assert /(Modifier) `static` !:= e.h.m:
 	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
 	staticParams = e.h.d.p;
-	staticParams = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> cle">, <{FormalParameter ","}* staticParams>`;
-	params       = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* staticParams>`;
+	cle = [FormalParameter] "<typeName> cle";
+	clr = [FormalParameter] "Object clr";
+	staticParams = ({FormalParameter ","}*) `<FormalParameter cle>, <{FormalParameter ","}* staticParams>`;
+	params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
 
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
@@ -254,7 +271,8 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
 // Pointcut for outgoing constructor call/return in local history of object of type typeName
 private str pointcutCons(OutEvent e, str typeName, str eventName, str aspectName) {
 	params = e.h.p;
-	params = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> clr">, <{FormalParameter ","}* params>`;
+	clr =[FormalParameter] "<typeName> clr";
+	params = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* params>`;
 	
 	bool retNonVoidMethod = ("<e.cr>" == "return");
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.t> ret)" : "";
@@ -278,8 +296,10 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
 // Pointcut for outgoing method call/return in local history of object of type typeName
 private str pointcutMethod(OutEvent e, str typeName, str eventName, str aspectName) {
 	params = e.h.d.p;
-	staticParams = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> clr">, <{FormalParameter ","}* params>`;
-	params       = ({FormalParameter ","}*) `<[FormalParameter] "<typeName> clr">, <[FormalParameter] "<e.h.t> cle">, <{FormalParameter ","}* params>`;
+	clr = [FormalParameter] "<typeName> clr";
+	cle = [FormalParameter] "<e.h.t> cle";
+	staticParams = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* params>`;
+	params       = ({FormalParameter ","}*) `<FormalParameter clr>, <FormalParameter cle>, <{FormalParameter ","}* params>`;
 
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
@@ -312,7 +332,8 @@ return "
 // Pointcut for constructor call/return in global history
 private str pointcutCons(OutEvent e, str eventName, str aspectName) {
 	params = e.h.p;
-	params = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* params>`;
+	clr = [FormalParameter] "Object clr";
+	params = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* params>`;
 	
 	bool retNonVoidMethod = ("<e.cr>" == "return");
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.t> ret)" : "";
@@ -342,9 +363,11 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
 // Pointcut for method call/return in global history
 private str pointcutMethod(OutEvent e, str eventName, str aspectName) {
 	staticParams1 = e.h.d.p;
-	staticParams2 = ({FormalParameter ","}*) `<[FormalParameter] "<e.h.t> cle">, <{FormalParameter ","}* staticParams1>`;
-	staticParams1 = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* staticParams1>`;
-	params       = ({FormalParameter ","}*) `<[FormalParameter] "Object clr">, <{FormalParameter ","}* staticParams2>`;
+	cle = [FormalParameter] "<e.h.t> cle";
+	clr = [FormalParameter] "Object clr";
+	staticParams2 = ({FormalParameter ","}*) `<FormalParameter cle>, <{FormalParameter ","}* staticParams1>`;
+	staticParams1 = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams1>`;
+	params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams2>`;
 
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
@@ -589,11 +612,11 @@ return "
        '
        '  <for (InEvent e <- hv.inTokens) {>
        '  <if(e is InCall) {> <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p, hv.inTokens[e].name, hv.inTokens[e].token)>
-       '  <} else          {> <updateMethod(hv.grammar, "return", (MethodRes) `<[MethodRes] "<hv.typeName>">`, e.h.p, hv.inTokens[e].name, hv.inTokens[e].token)> <}>
+       '  <} else          { typeName = [MethodRes] "<hv.typeName>";> <updateMethod(hv.grammar, "return", (MethodRes) `<MethodRes typeName>`, e.h.p, hv.inTokens[e].name, hv.inTokens[e].token)> <}>
        '  <}>
        '  <for (OutEvent e <- hv.outTokens) {>
        '  <if(e is OutCall) {> <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p, hv.outTokens[e].name, hv.outTokens[e].token)>
-       '  <} else           {> <updateMethod(hv.grammar, "<e.cr>", (MethodRes) `<[MethodRes] "<e.h.t>">`, e.h.p, hv.outTokens[e].name, hv.outTokens[e].token)> <}>
+       '  <} else           { typeName = [MethodRes] "<e.h.t>";> <updateMethod(hv.grammar, "<e.cr>", (MethodRes) `<MethodRes typeName>`, e.h.p, hv.outTokens[e].name, hv.outTokens[e].token)> <}>
        '  <}>
        '}";
 }
