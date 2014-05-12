@@ -237,7 +237,6 @@ private str pointcutMethod(InEvent e, str typeName, str eventName, str aspectNam
 	staticParams = [elem | elem <- e.h.d.p.elements];
 	cle = [FormalParameter] "<typeName> cle";
 	clr = [FormalParameter] "Object clr";
-	println("DEBUG <e.h.r>");
 	//staticParams = ({FormalParameter ","}*) `<FormalParameter cle>, <{FormalParameter ","}* staticParams>`;
 	staticParams = [cle, *staticParams];
 	//params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
