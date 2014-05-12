@@ -76,55 +76,75 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
 	       '  }
 	       '}";
 }
+  
+{FormalParameter ","}* makeParameters(list[FormalParameter] params) {
+    FormalParameters result = (FormalParameters) ``;
+    
+    for (param <- params) {
+       {FormalParameter ","}* prefix = result.elements;
+       result = (FormalParameters) `<{FormalParameter ","}* prefix>, <FormalParameter param>`;
+    }
+    
+    return result.elements;
+}
 
 private str tokenClassCons(InEvent e, str typeName, str eventName, str historyClass) {
-	{FormalParameter ","}* params = e.h.p;
+	{FormalParameter ","}* params = e.h.p.elements;
 	caller = [FormalParameter] "Object caller";
-	calee = [FormalParameter] "<typeName> callee";
-	params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
+	callee = [FormalParameter] "<typeName> callee";
+	//params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
 	result = [FormalParameter] "<typeName> result";
-	params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
+	//params = (FormalParameters) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	
+	params = makeParameters([caller, callee, *[elem | elem <- e.h.p], result]);
 	return txtTokenClass(params, eventName, "new_<typeName>", historyClass);
 }
 
 private str tokenClassMethod(InEvent e, str typeName, str eventName, str historyClass) {
-	{FormalParameter ","}* params = e.h.d.p;
+	params = [elem | elem <- e.h.d.p.elements];
 	caller = [FormalParameter] "Object caller";
     calee = [FormalParameter] "<typeName> callee";
-	params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
+	//params = (FormalParameters) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`.elements;
+	params = [caller, callee, *params];
+	
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
 	  result = [FormalParameter] "<typeName> result";
-	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
+	  //params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
+	  params = params + [result];
 	}
 	
-	return txtTokenClass(params, eventName, "<e.h.d.id>", historyClass);
+	return txtTokenClass(makeParameters(params), eventName, "<e.h.d.id>", historyClass);
 }
 
 private str tokenClassCons(OutEvent e, str typeName, str eventName, str historyClass) {
-	{FormalParameter ","}* params = e.h.p;
+	params = [ elem | elem <- e.h.p.elements];
 	caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
 	callee = [FormalParameter] "<e.h.t> callee";
-	params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
+	//params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
+	params = [caller, callee, *params];
 	if ("return" == "<e.cr>") {
 	  result = <[FormalParameter] "<e.h.t> result">;
-	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
+	  //params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
+	  params = [*params, result];
 	}
 	
-	return txtTokenClass(params, eventName, "new_<e.h.t>", historyClass);
+	return txtTokenClass(makeParameters(params), eventName, "new_<e.h.t>", historyClass);
 }
 
 private str tokenClassMethod(OutEvent e, str typeName, str eventName, str historyClass) {
-	{FormalParameter ","}* params = e.h.d.p;
+	params = [ elem | elem <- e.h.d.p.elements];
 	caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
     callee = [FormalParameter] "<e.h.t> callee";
-	params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
+	//params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
+	params = [caller, callee, *params];
+	
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
 	  result = [FormalParameter] "<e.h.r> result";
-	  params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
+	  //params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
+	  params = [*params, result];
 	}
 	
-	return txtTokenClass(params, eventName, "<e.h.d.id>", historyClass);
+	return txtTokenClass(makeParameters(params), eventName, "<e.h.d.id>", historyClass);
 }
 
 private {FormalParameter ","}* getAttributesFromGrammar(ANTLR grammar) {
@@ -132,38 +152,37 @@ private {FormalParameter ","}* getAttributesFromGrammar(ANTLR grammar) {
     return formals;
   }
   if (/(Thing) `start` := grammar) {
-    return ({FormalParameter ","}*) ``;
+    return makeParameters([]);
   }
   throw "could not retrieve formals from start non-terminal in grammar";
 }
 
 
-
-
-private {Type ","}* formalsToTypes({FormalParameter ","}* formals) {
-	result = ({Type ","}*) ``;
-	for ((FormalParameter) f <- formals) {
-	    formal = [Type] "<f.t>";
-		if(({Type ","}*) `` := result) {   
-			result = ({Type ","}*) `<Type formal>`;
-		} else {
-			result = ({Type ","}*) `<{Type ","}* result>, <Type formal>`;
-		}
-	}
-	return result;
+{Expression ","}* makeExpressions(list[Expression] params) {
+    Expressions result = (Expressions) ``;
+    
+    for (param <- params) {
+       {Expression ","}* prefix = result.elements;
+       result = (Expressions) `<{Expression ","}* prefix>, <Expression param>`;
+    }
+     
+    return result.elements;
 }
 
+private {Expression ","}* formalsToParams(FormalParameters formals) = formalsToParams(formals.elements);
+
 private {Expression ","}* formalsToParams({FormalParameter ","}* formals) {
-	result = ({Expression ","}*) ``;
-	for ((FormalParameter) f <- formals) {
-	    actual = [Identifier] "<f.v>";
-		if(({Expression ","}*) `` := result) {
-			result = ({Expression ","}*) `<Identifier actual>`;
-		} else {
-			result = ({Expression ","}*) `<{Expression ","}* result>, <Identifier actual>`;
-		}
-	}
-	return result;
+  return makeExpressions([ f.v | f <- formals]);
+	//result = ({Expression ","}*) ``;
+	//for ((FormalParameter) f <- formals) {
+	//    actual = [Identifier] "<f.v>";
+	//	if(({Expression ","}*) `` := result) {
+	//		result = ({Expression ","}*) `<Identifier actual>`;
+	//	} else {
+	//		result = ({Expression ","}*) `<{Expression ","}* result>, <Identifier actual>`;
+	//	}
+	//}
+	//return result;
 }
 
 private list[str] formalsToPrintables({FormalParameter ","}* formals, str historyClass) {
@@ -217,27 +236,30 @@ return "<aspectInfo>
 private str pointcutCons(InEvent e, str typeName, str eventName, str aspectName) {
 	assert /(Modifier) `static` !:= e.h.m:
 	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
-	staticParams = e.h.p;
+	staticParams = [ elem | elem <- e.h.p.elements];
 	clr = [FormalParameter] "Object clr";
-	params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
-
-	str histParams = (({FormalParameter ","}*) `` != e.h.p) ? "<formalsToParams(e.h.p)>, ret" : "ret";
-
+	//params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
+    params = [clr, *staticParams];
+    
+    ret = [FormalParameter] "ret";
+    histParams = [*staticParams, ret];
+    
 return "/* <e.h.m> new(<e.h.p>) */
-       'after(<params>) returning(<typeName> ret):
+       'after(<makeParameters(params)>) returning(<typeName> ret):
        '  (call(<e.h.m> *.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '    ret.h.update(new <eventName>(clr, null, <histParams>));
+       '    ret.h.update(new <eventName>(clr, null, <makeParameters(histParams)>));
        '}
        '
-       'after(<staticParams>) returning(<typeName> ret): // from static method
+       'after(<makeParameters(staticParams)>) returning(<typeName> ret): // from static method
        '  (call(<e.h.m> *.new(..)) && !this(Object) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '    ret.h.update(new <eventName>(null, null, <histParams>));
+       '    ret.h.update(new <eventName>(null, null, <makeParameters(histParams)>));
        '}
        ";
 }
 
+// TODO JURGEN EN STIJN WERE HERE. 
 // Pointcut for incoming method call/return in local history of object of type typeName
 private str pointcutMethod(InEvent e, str typeName, str eventName, str aspectName) {
 	assert /(Modifier) `static` !:= e.h.m:

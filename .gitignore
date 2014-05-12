@@ -5,7 +5,7 @@
 
 # eclipse stuff
 .metadata
-bin/**
+bin
 tmp/**
 tmp/**/*
 *.tmp

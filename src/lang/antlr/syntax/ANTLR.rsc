@@ -27,9 +27,11 @@ syntax Thing
   |  "start" "returns" "[" {FormalParameter ","}* "]" /* Word+ ":" */
   |  "start" () !>> "returns"                                                  
   ;
+
+syntax Types = {Type ","}+ elements;
   
 syntax Type
-  = Identifier "\<" {Type ","}+ "\>"
+  = Identifier "\<" Types "\>"
   ;
 
 public start[ANTLR] antlr(str s, loc l) {

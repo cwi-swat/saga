@@ -67,8 +67,8 @@ syntax LAYOUT
   ;
 
 syntax ExplicitConstructorInvocation
-  =  \super-comma-semicolon: "super" !>> [a-z A-Z 0-9 _] "(" {Expression ","}* ")" ";" 
-    |  \this-comma-semicolon: "this" !>> [a-z A-Z 0-9 _] "(" {Expression ","}* ")" ";" 
+  =  \super-comma-semicolon: "super" !>> [a-z A-Z 0-9 _] "(" Expressions ")" ";" 
+    |  \this-comma-semicolon: "this" !>> [a-z A-Z 0-9 _] "(" Expressions ")" ";" 
   ;
     
 syntax ConstructorDeclaration
@@ -80,7 +80,7 @@ syntax ConstructorBody
   ;
 
 syntax ConstructorDeclarator
-  =  comma5: SimpleName "(" {FormalParameter ","}* ")" 
+  =  comma5: SimpleName "(" FormalParameters ")" 
   ;
 
 syntax DimExprInitialized
@@ -96,8 +96,8 @@ syntax StatementExpression
   ;
 
 syntax ClassInstanceCreationExpression
-  =  \new-comma1: "new" !>> [a-z A-Z 0-9 _] ClassType "(" {Expression ","}* ")" ClassBody 
-    |  \new-comma: "new" !>> [a-z A-Z 0-9 _] ClassType "(" {Expression ","}* ")" 
+  =  \new-comma1: "new" !>> [a-z A-Z 0-9 _] ClassType "(" Expressions ")" ClassBody 
+    |  \new-comma: "new" !>> [a-z A-Z 0-9 _] ClassType "(" Expressions ")" 
   ;
 
 syntax Primary
@@ -112,11 +112,13 @@ syntax ArrayCreationExpression
     |  new3: "new" !>> [a-z A-Z 0-9 _] ClassOrInterfaceType DimExprInitialized+ ArrayInitializer 
   ;
 
+syntax Expressions = {Expression ","}* elements;
+
 syntax MethodInvocation
   = @NotSupported="prefer" MethodInvocationConstructor: Primary "." ClassInstanceCreationExpression 
     |  comma21: Primary "." Identifier \ IdentifierKeywords !>> [a-z A-Z 0-9 _ $] "(" {Expression ","}* ")" 
-    | @NotSupported="prefer" \super-comma: "super" !>> [a-z A-Z 0-9 _] "." Identifier \ IdentifierKeywords !>> [a-z A-Z 0-9 _ $] "(" {Expression ","}* ")" 
-    | @NotSupported="avoid" comma11: Name "(" {Expression ","}* ")" 
+    | @NotSupported="prefer" \super-comma: "super" !>> [a-z A-Z 0-9 _] "." Identifier \ IdentifierKeywords !>> [a-z A-Z 0-9 _ $] "(" Expressions ")" 
+    | @NotSupported="avoid" comma11: Name "(" Expressions ")" 
   ;
 
 syntax AssignmentOperator
@@ -548,7 +550,7 @@ syntax IntegerLiteral
 
 syntax MethodDeclarator
   =  MethodDeclarator: MethodDeclarator "[" "]" 
-    |  Identifier id \ IdentifierKeywords !>> [a-z A-Z 0-9 _ $] "(" {FormalParameter ","}* p ")" 
+    |  Identifier id \ IdentifierKeywords !>> [a-z A-Z 0-9 _ $] "(" FormalParameters p ")" 
   ;
 
 syntax MethodBody
@@ -723,6 +725,8 @@ syntax Finally
 syntax Block
   =  \BlockStatement-s: "{" BlockStatement* "}" 
   ;
+
+syntax FormalParameters = {FormalParameter ","}* elements;
 
 syntax CatchClause
   =  \catch: "catch" !>> [a-z A-Z 0-9 _] "(" FormalParameter ")" Block 
