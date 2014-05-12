@@ -237,7 +237,7 @@ private str pointcutMethod(InEvent e, str typeName, str eventName, str aspectNam
 	staticParams = [elem | elem <- e.h.d.p.elements];
 	cle = [FormalParameter] "<typeName> cle";
 	clr = [FormalParameter] "Object clr";
-    ret = [FormalParameter] "<e.h.r> ret";
+	println("DEBUG <e.h.r>");
 	//staticParams = ({FormalParameter ","}*) `<FormalParameter cle>, <{FormalParameter ","}* staticParams>`;
 	staticParams = [cle, *staticParams];
 	//params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
@@ -247,7 +247,8 @@ private str pointcutMethod(InEvent e, str typeName, str eventName, str aspectNam
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
 	//str histParams        = "<formalsToParams(staticParams)>" + (retNonVoidMethod ? ", ret" : "");
-	histParams = retNonVoidMethod ? [*params, ret] : params;
+	histParams = retNonVoidMethod ? (params + [FormalParameter] "<e.h.r> ret")
+								  : params;
 
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
@@ -283,7 +284,8 @@ private str pointcutCons(OutEvent e, str typeName, str eventName, str aspectName
 	//} else {
 	//	histParams       += (retNonVoidMethod ? ", ret" : "");
 	//}
-	histParams = retNonVoidMethod ? [*histParams, ret] : histParams;
+	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
+								  : histParams;
 
 return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
