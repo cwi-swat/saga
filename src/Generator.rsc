@@ -108,7 +108,7 @@ private str tokenClassMethod(InEvent e, str typeName, str eventName, str history
 	params = [caller, callee, *params];
 	
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
-	  result = [FormalParameter] "<typeName> result";
+	  result = [FormalParameter] "<e.h.r> result";
 	  //params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	  params = params + [result];
 	}
@@ -233,21 +233,20 @@ return "/* <e.h.m> new(<e.h.p>) */
 private str pointcutMethod(InEvent e, str typeName, str eventName, str aspectName) {
 	assert /(Modifier) `static` !:= e.h.m:
 	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
-	//staticParams = e.h.d.p;
-	staticParams = [elem | elem <- e.h.d.p.elements];
 	cle = [FormalParameter] "<typeName> cle";
 	clr = [FormalParameter] "Object clr";
+	//staticParams = e.h.d.p;
 	//staticParams = ({FormalParameter ","}*) `<FormalParameter cle>, <{FormalParameter ","}* staticParams>`;
-	staticParams = [cle, *staticParams];
+	staticParams = cle + [elem | elem <- e.h.d.p.elements];
 	//params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
-	params = [clr, *staticParams];
+	params = clr + staticParams;
 
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
 	//str histParams        = "<formalsToParams(staticParams)>" + (retNonVoidMethod ? ", ret" : "");
-	histParams = retNonVoidMethod ? (params + [FormalParameter] "<e.h.r> ret")
-								  : params;
+	histParams = retNonVoidMethod ? (staticParams + [FormalParameter] "<e.h.r> ret")
+								  : staticParams;
 
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
@@ -272,7 +271,6 @@ private str pointcutCons(OutEvent e, str typeName, str eventName, str aspectName
 	clr =[FormalParameter] "<typeName> clr";
 	//params = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* params>`;
 	params = [clr, *params];
-	ret = [FormalParameter] "<e.h.t> ret";
 	
 	bool retNonVoidMethod = ("<e.cr>" == "return");
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.t> ret)" : "";
@@ -317,7 +315,9 @@ private str pointcutMethod(OutEvent e, str typeName, str eventName, str aspectNa
 	//} else {
 	//	histParams       += (retNonVoidMethod ? ", ret" : "");
 	//}
-	histParams = retNonVoidMethod ? [*histParams, ret] : histParams;
+	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.r> ret")
+								  : histParams;
+	
 
 	if(/(Modifier) `static` !:= e.h.m) { // non-static method
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
@@ -343,7 +343,6 @@ private str pointcutCons(OutEvent e, str eventName, str aspectName) {
 	params = [elem | elem <- e.h.p.elements];
 	histParams = params;
 	clr = [FormalParameter] "Object clr";
-	ret = [FormalParameter] "<e.h.t> ret";
 	//params = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* params>`;
 	params = [clr, *params];
 	
@@ -356,7 +355,8 @@ private str pointcutCons(OutEvent e, str eventName, str aspectName) {
 	//} else {
 	//	histParams       += (retNonVoidMethod ? ", ret" : "");
 	//}
-	histParams = retNonVoidMethod ? [*histParams, ret] : histParams;
+	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
+								  : histParams;
 	
 	
 return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
@@ -488,7 +488,6 @@ return "<grammar.h ? "">
        'import java.util.HashMap; // for use in <hv.history>
        '
        'aspect <hv.history>Aspect {
-       '
        '    static <hv.history> h = new <hv.history>();
        '
        '///////////////////////////////////////////////////////
