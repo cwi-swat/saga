@@ -48,6 +48,7 @@ public void generate(loc view) {
   	historyAspect = globalAspect(h, grammarTree);
   }
   writeFile(aspectLoc,historyAspect);
+  println("Successfully wrote tracing aspect to <aspectLoc>");
 }
 
 private str txtTokenClass({FormalParameter ","}* params, str className, str methodName, str historyClass) {
@@ -92,9 +93,7 @@ private str tokenClassCons(InEvent e, str typeName, str eventName, str historyCl
 	{FormalParameter ","}* params = e.h.p.elements;
 	caller = [FormalParameter] "Object caller";
 	callee = [FormalParameter] "<typeName> callee";
-	//params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
 	result = [FormalParameter] "<typeName> result";
-	//params = (FormalParameters) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	
 	params = makeParameters([caller, callee, *[elem | elem <- e.h.p.elements], result]);
 	return txtTokenClass(params, eventName, "<typeName>", historyClass);
@@ -104,12 +103,10 @@ private str tokenClassMethod(InEvent e, str typeName, str eventName, str history
 	params = [elem | elem <- e.h.d.p.elements];
 	caller = [FormalParameter] "Object caller";
     callee = [FormalParameter] "<typeName> callee";
-	//params = (FormalParameters) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`.elements;
 	params = [caller, callee, *params];
 	
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
 	  result = [FormalParameter] "<e.h.r> result";
-	  //params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	  params = params + [result];
 	}
 	
@@ -120,11 +117,10 @@ private str tokenClassCons(OutEvent e, str typeName, str eventName, str historyC
 	params = [ elem | elem <- e.h.p.elements];
 	caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
 	callee = [FormalParameter] "<e.h.t> callee";
-	//params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
 	params = [caller, callee, *params];
+	
 	if ("return" == "<e.cr>") {
 	  result = <[FormalParameter] "<e.h.t> result">;
-	  //params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	  params = [*params, result];
 	}
 	
@@ -135,12 +131,10 @@ private str tokenClassMethod(OutEvent e, str typeName, str eventName, str histor
 	params = [ elem | elem <- e.h.d.p.elements];
 	caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
     callee = [FormalParameter] "<e.h.t> callee";
-	//params = ({FormalParameter ","}*) `<FormalParameter caller>, <FormalParameter callee>, <{FormalParameter ","}* params>`;
 	params = [caller, callee, *params];
 	
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
 	  result = [FormalParameter] "<e.h.r> result";
-	  //params = ({FormalParameter ","}*) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	  params = [*params, result];
 	}
 	
@@ -177,16 +171,6 @@ private {Expression ","}* formalsToParams(FormalParameters formals) = formalsToP
 
 private {Expression ","}* formalsToParams({FormalParameter ","}* formals) {
   return makeExpressions([ f.v | f <- formals]);
-	//result = ({Expression ","}*) ``;
-	//for ((FormalParameter) f <- formals) {
-	//    actual = [Identifier] "<f.v>";
-	//	if(({Expression ","}*) `` := result) {
-	//		result = ({Expression ","}*) `<Identifier actual>`;
-	//	} else {
-	//		result = ({Expression ","}*) `<{Expression ","}* result>, <Identifier actual>`;
-	//	}
-	//}
-	//return result;
 }
 
 private list[str] formalsToPrintables({FormalParameter ","}* formals, str historyClass) {
@@ -201,14 +185,18 @@ private list[str] formalsToPrintables({FormalParameter ","}* formals, str histor
 	return l;
 }
 
-// Pointcut for incoming constructor return in local history of object of type typeName
-private str pointcutCons(InEvent e, str typeName, str eventName, str aspectName) {
-	assert /(Modifier) `static` !:= e.h.m:
-	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
+/* Creates a pointcut for an incoming constructor return in local history of object of type typeName
+ * @param e  		The event for which a pointcut must be created
+ * @param typeName	The type of the object under test
+ * @param eventName	The token class storing the attributes involved in the event
+ * @param viewName	The name of the enclosing communication view
+ * @return			The pointcut (as a string) for the communication event
+*/
+private str pointcutCons(InEvent e, str typeName, str eventName, str viewName) {
 	staticParams = [ elem | elem <- e.h.p.elements];
 	clr = [FormalParameter] "Object clr";
-	//params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
-    params = [clr, *staticParams];
+	params = [clr, *staticParams];
+	str aspectName = "<viewName>Aspect";
     
     ret = [FormalParameter] "<typeName> ret";
     histParams = [*staticParams, ret];
@@ -217,34 +205,50 @@ return "/* <e.h.m> new(<e.h.p>) */
        'after(<makeParameters(params)>) returning(<typeName> ret):
        '  (call(<e.h.m> *.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '    ret.h.update(new <eventName>(clr, null, <formalsToParams(histParams)>));
+       '	<if(/java(x?)\..*/ := typeName) {>
+       '    	if(h.get(ret) == null) {
+       '			h.put(ret, new <viewName>());
+       '		}
+       '		h.get(ret).update(new <eventName>(clr, null, <formalsToParams(histParams)>));
+       '	<} else {>
+       '		ret.h.update(new <eventName>(clr, null, <formalsToParams(histParams)>));
+       '	<}>
        '}
        '
        'after(<makeParameters(staticParams)>) returning(<typeName> ret): // from static method
        '  (call(<e.h.m> *.new(..)) && !this(Object) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '    ret.h.update(new <eventName>(null, null, <formalsToParams(histParams)>));
+       '	<if(/java(x?)\..*/ := typeName) {>
+       '    	if(h.get(ret) == null) {
+       '			h.put(ret, new <viewName>());
+       '		}
+       '		h.get(ret).update(new <eventName>(null, null, <formalsToParams(histParams)>));
+       '	<} else {>
+       '		ret.h.update(new <eventName>(null, null, <formalsToParams(histParams)>));
+       '	<}>
        '}
        ";
 }
 
-// TODO JURGEN EN STIJN WE WERE HERE. 
-// Pointcut for incoming method call/return in local history of object of type typeName
-private str pointcutMethod(InEvent e, str typeName, str eventName, str aspectName) {
+/* Creates a pointcut for an incoming method call/return in local history of object of type typeName
+ * @param e  		The event for which a pointcut must be created
+ * @param typeName	The type of the object under test
+ * @param eventName	The token class storing the attributes involved in the event
+ * @param viewName	The name of the enclosing communication view
+ * @return			The pointcut (as a string) for the communication event
+*/
+private str pointcutMethod(InEvent e, str typeName, str eventName, str viewName) {
 	assert /(Modifier) `static` !:= e.h.m:
 	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
 	cle = [FormalParameter] "<typeName> cle";
 	clr = [FormalParameter] "Object clr";
-	//staticParams = e.h.d.p;
-	//staticParams = ({FormalParameter ","}*) `<FormalParameter cle>, <{FormalParameter ","}* staticParams>`;
 	staticParams = cle + [elem | elem <- e.h.d.p.elements];
-	//params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams>`;
 	params = clr + staticParams;
+	str aspectName = "<viewName>Aspect";
 
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
-	//str histParams        = "<formalsToParams(staticParams)>" + (retNonVoidMethod ? ", ret" : "");
 	histParams = retNonVoidMethod ? (staticParams + [FormalParameter] "<e.h.r> ret")
 								  : staticParams;
 
@@ -252,35 +256,49 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
-       '    cle.h.update(new <eventName>(clr, <formalsToParams(histParams)>));
+       '	<if(/java(x?)\..*/ := typeName) {>
+       '    	if(h.get(cle) == null) {
+       '			h.put(cle, new <viewName>());
+       '		}
+       '    	h.get(cle).update(new <eventName>(clr, <formalsToParams(histParams)>));
+       '	<} else {>
+       '		cle.h.update(new <eventName>(clr, <formalsToParams(histParams)>));
+       '	<}>
        '}
        '
        '<callRet>(<makeParameters(staticParams)>)<retNonVoid>: // from static method
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '    cle.h.update(new <eventName>(null, <formalsToParams(histParams)>));
+       '	<if(/java(x?)\..*/ := typeName) {>
+       '    	if(h.get(cle) == null) {
+       '			h.put(cle, new <viewName>());
+       '		}
+       '    	h.get(cle).update(new <eventName>(null, <formalsToParams(histParams)>));
+       '	<} else {>
+       '		cle.h.update(new <eventName>(null, <formalsToParams(histParams)>));
+       '	<}>
        '}
        ";
 }
 
-// Pointcut for outgoing constructor call/return in local history of object of type typeName
-private str pointcutCons(OutEvent e, str typeName, str eventName, str aspectName) {
-	// params = e.h.p;
+/* Creates a pointcut for an outgoing constructor call/return in local history of object of type typeName
+ * @param e  		The event for which a pointcut must be created
+ * @param typeName	The type of the object under test
+ * @param eventName	The token class storing the attributes involved in the event
+ * @param viewName	The name of the enclosing communication view
+ * @return			The pointcut (as a string) for the communication event
+*/
+private str pointcutCons(OutEvent e, str typeName, str eventName, str viewName) {
 	params = [elem | elem <- e.h.p.elements];
 	histParams = params;
 	clr =[FormalParameter] "<typeName> clr";
-	//params = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* params>`;
 	params = [clr, *params];
+	str aspectName = "<viewName>Aspect";
 	
 	bool retNonVoidMethod = ("<e.cr>" == "return");
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.t> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
-	//str histParams        = "<formalsToParams(e.h.p)>";
-	//if(e.h.p == (FormalParameters) ``) {
-	//	histParams        = (retNonVoidMethod ? "ret" : "");
-	//} else {
-	//	histParams       += (retNonVoidMethod ? ", ret" : "");
-	//}
+	
 	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
 								  : histParams;
 
@@ -288,73 +306,92 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.t>+.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '    clr.h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<if(/java(x?)\..*/ := typeName) {>
+       '    	if(h.get(clr) == null) {
+       '			h.put(clr, new <viewName>());
+       '		}
+       '    	h.get(clr).update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<} else {>
+       '		clr.h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<}>
        '}
        ";
 }
 
-// Pointcut for outgoing method call/return in local history of object of type typeName
-private str pointcutMethod(OutEvent e, str typeName, str eventName, str aspectName) {
+/* Creates a pointcut for an outgoing method call/return in local history of object of type typeName
+ * @param e  		The event for which a pointcut must be created
+ * @param typeName	The type of the object under test
+ * @param eventName	The token class storing the attributes involved in the event
+ * @param viewName	The name of the enclosing communication view
+ * @return			The pointcut (as a string) for the communication event
+*/
+private str pointcutMethod(OutEvent e, str typeName, str eventName, str viewName) {
 	//params = e.h.d.p;
 	params = [elem | elem <- e.h.d.p.elements];
 	histParams = params;
 	clr = [FormalParameter] "<typeName> clr";
 	cle = [FormalParameter] "<e.h.t> cle";
 	ret = [FormalParameter] "<e.h.r> ret";
-	//staticParams = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* params>`;
 	staticParams = [clr, *params];
-	//params       = ({FormalParameter ","}*) `<FormalParameter clr>, <FormalParameter cle>, <{FormalParameter ","}* params>`;
 	params = [clr, cle, *params];
+	str aspectName = "<viewName>Aspect";
 
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
-	//str histParams        = "<formalsToParams(e.h.d.p)>";
-	//if(e.h.d.p == ({FormalParameter ","}*) ``) {
-	//	histParams        = (retNonVoidMethod ? "ret" : "");
-	//} else {
-	//	histParams       += (retNonVoidMethod ? ", ret" : "");
-	//}
+	
 	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.r> ret")
 								  : histParams;
 	
-
 	if(/(Modifier) `static` !:= e.h.m) { // non-static method
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
-       '    clr.h.update(new <eventName>(clr, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<if(/java(x?)\..*/ := typeName) {>
+       '    	if(h.get(clr) == null) {
+       '			h.put(clr, new <viewName>());
+       '		}
+       '    	h.get(clr).update(new <eventName>(clr, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<} else {>
+       '		clr.h.update(new <eventName>(clr, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<}>
        '}";
 	} else { // static method
 return "
        '<callRet>(<makeParameters(staticParams)>)<retNonVoid>: // static method
        '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '    clr.h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<if(/java(x?)\..*/ := typeName) {>
+       '    	if(h.get(clr) == null) {
+       '			h.put(clr, new <viewName>());
+       '		}
+       '    	h.get(clr).update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<} else {>
+       '		clr.h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '	<}>
        '}
        ";
 	}
 }
 
-// Pointcut for constructor call/return in global history
-private str pointcutCons(OutEvent e, str eventName, str aspectName) {
-	//params = e.h.p;
+/* Creates a pointcut for a constructor call/return in global history
+ * @param e  		The event for which a pointcut must be created
+ * @param eventName	The token class storing the attributes involved in the event
+ * @param viewName	The name of the enclosing communication view
+ * @return			The pointcut (as a string) for the communication event
+*/
+private str pointcutCons(OutEvent e, str eventName, str viewName) {
 	params = [elem | elem <- e.h.p.elements];
 	histParams = params;
 	clr = [FormalParameter] "Object clr";
-	//params = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* params>`;
 	params = [clr, *params];
+	str aspectName = "<viewName>Aspect";
 	
 	bool retNonVoidMethod = ("<e.cr>" == "return");
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.t> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
-	//str histParams        = "<formalsToParams(e.h.p)>";
-	//if(e.h.p == ({FormalParameter ","}*) ``) {
-	//	histParams        = (retNonVoidMethod ? "ret" : "");
-	//} else {
-	//	histParams       += (retNonVoidMethod ? ", ret" : "");
-	//}
+	
 	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
 								  : histParams;
 	
@@ -374,30 +411,27 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        ";
 }
 
-// Pointcut for method call/return in global history
-private str pointcutMethod(OutEvent e, str eventName, str aspectName) {
-	//staticParams1 = e.h.d.p;
+/* Creates a pointcut for a method call/return in global history
+ * @param e  		The event for which a pointcut must be created
+ * @param eventName	The token class storing the attributes involved in the event
+ * @param viewName	The name of the enclosing communication view
+ * @return			The pointcut (as a string) for the communication event
+*/
+private str pointcutMethod(OutEvent e, str eventName, str viewName) {
 	staticParams1 = [elem | elem <- e.h.d.p.elements];
 	histParams = staticParams1;
 	cle = [FormalParameter] "<e.h.t> cle";
 	clr = [FormalParameter] "Object clr";
 	ret = [FormalParameter] "<e.h.r> ret";
-	//staticParams2 = ({FormalParameter ","}*) `<FormalParameter cle>, <{FormalParameter ","}* staticParams1>`;
 	staticParams2 = [cle, *staticParams1];
-	//staticParams1 = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams1>`;
 	staticParams1 = [clr, *staticParams1];
-	//params       = ({FormalParameter ","}*) `<FormalParameter clr>, <{FormalParameter ","}* staticParams2>`;
 	params = [clr, *staticParams2];
+	str aspectName = "<viewName>Aspect";
 
 	bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
 	str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
-	//str histParams        = "<formalsToParams(e.h.d.p)>";
-	//if(e.h.d.p == ({FormalParameter ","}*) ``) {
-	//	histParams        = (retNonVoidMethod ? "ret" : "");
-	//} else {
-	//	histParams       += (retNonVoidMethod ? ", ret" : "");
-	//}
+	
 	histParams = retNonVoidMethod ? [*histParams, ret]: histParams;
 	
 	if(/(Modifier) `static` !:= e.h.m) { // to non-static method
@@ -442,7 +476,12 @@ return "<grammar.h ? "">
        'import java.util.HashMap; // for use in <hv.history>
        '
        'aspect <hv.history>Aspect {
-       '    private <hv.history> <hv.typeName>.h = new <hv.history>();
+       '	<if(/java(x?)\..*/ := hv.typeName) {>
+       '		private static IdentityHashMap\<Object, <hv.history>\> h = new IdentityHashMap\<Object, <hv.history>\>();
+       '	<} else {>
+       '  	  private <hv.history> <hv.typeName>.h = new <hv.history>();
+       '	<}>
+       '
        '
        '///////////////////////////////////////////////////////
        '/////////////////////// Event classes /////////////////
@@ -466,12 +505,12 @@ return "<grammar.h ? "">
        '/////////////////////// Aspects ///////////////////////
        '///////////////////////////////////////////////////////
        '<for (InEvent e <- hv.inTokens) {>
-       '    <if(e is InCall) {> <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, "<hv.history>Aspect")>
-       '    <} else          {> <pointcutCons(e, hv.typeName, hv.inTokens[e].name, "<hv.history>Aspect")> <}>
+       '    <if(e is InCall) {> <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, hv.history)>
+       '    <} else          {> <pointcutCons(e, hv.typeName, hv.inTokens[e].name, hv.history)> <}>
        '<}>
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <if(e is OutCall) {> <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, "<hv.history>Aspect")>
-       '    <} else           {> <pointcutCons(e,hv.typeName, hv.outTokens[e].name, "<hv.history>Aspect")> <}>
+       '    <if(e is OutCall) {> <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, hv.history)>
+       '    <} else           {> <pointcutCons(e,hv.typeName, hv.outTokens[e].name, hv.history)> <}>
        '<}>
        '}";
 }
@@ -508,8 +547,8 @@ return "<grammar.h ? "">
        '/////////////////////// Aspects ///////////////////////
        '///////////////////////////////////////////////////////
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <if(e is OutCall) {> <pointcutMethod(e, hv.outTokens[e].name, "<hv.history>Aspect")>
-       '    <} else           {> <pointcutCons(e, hv.outTokens[e].name, "<hv.history>Aspect")> <}>
+       '    <if(e is OutCall) {> <pointcutMethod(e, hv.outTokens[e].name, hv.history)>
+       '    <} else           {> <pointcutCons(e, hv.outTokens[e].name, hv.history)> <}>
        '<}>
        '}";
 }
