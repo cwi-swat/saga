@@ -3,6 +3,7 @@ module lang::view::\syntax::View
 extend lang::java::\syntax::BigJava;
 import ParseTree; // for parse()
 import Exception; // for catching ParseError
+import String; // for replaceAll
 
 
 start syntax View
@@ -80,9 +81,9 @@ private viewStruct generateUniqueEventNames(viewStruct hv) {
 		if(e is InCall || e is OutCall) {
 			name = defaultName = "<e.cr>_<e.h.d.id>";
 		} else if(e is InCons) {
-			name = defaultName = "new_<hv.typeName>";
+			name = defaultName = replaceAll("new_<hv.typeName>", ".", "_");
 		} else if(e is OutCons) {
-			name = defaultName = "<e.cr>_new_<e.h.t>";
+			name = defaultName = replaceAll("<e.cr>_new_<e.h.t>", ".", "_");
 		}
 		int i=0;
 		while(name in eventNames) {

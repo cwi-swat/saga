@@ -96,8 +96,8 @@ private str tokenClassCons(InEvent e, str typeName, str eventName, str historyCl
 	result = [FormalParameter] "<typeName> result";
 	//params = (FormalParameters) `<{FormalParameter ","}* params>, <FormalParameter result>`;
 	
-	params = makeParameters([caller, callee, *[elem | elem <- e.h.p], result]);
-	return txtTokenClass(params, eventName, "new_<typeName>", historyClass);
+	params = makeParameters([caller, callee, *[elem | elem <- e.h.p.elements], result]);
+	return txtTokenClass(params, eventName, "<typeName>", historyClass);
 }
 
 private str tokenClassMethod(InEvent e, str typeName, str eventName, str historyClass) {
@@ -611,12 +611,12 @@ return "
        '      <} else {>
        '      _start = parser.start();
        '      <}>
-       '    } catch(RecognitionException r) {
+       '    } catch(Exception r) { // Protocol violation in grammar
        '        print();
-       '        assert false; // Assertion Failure
-       '    } catch(AssertionError r) {
+       '        assert false;
+       '    } catch(Error r) { // Assertion Failure in grammar
        '        print();
-       '        assert false; // Assertion Failure
+       '        assert false;
        '    }
        '  }
        '
