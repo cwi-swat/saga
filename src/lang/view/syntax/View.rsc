@@ -7,7 +7,7 @@ import String; // for replaceAll
 
 
 start syntax View
-  =  LocalView: "local" "view" Identifier v "grammar" File g "specifies" ClassOrInterfaceType t "{" {  LocalTokenDef ","}+ e "}"
+  =  LocalView: "local" "view" Identifier v "grammar" File g "specifies" ClassOrInterfaceType t "noField"? nf "{" {  LocalTokenDef ","}+ e "}"
   | GlobalView: "global" "view" Identifier v "grammar" File g                                   "{" { GlobalTokenDef ","}+ e "}"
   ;
 
@@ -47,7 +47,7 @@ syntax GlobalConsHeader
   ;
 
 
-alias viewStruct = tuple[str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens];
+alias viewStruct = tuple[str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens, bool noField];
 
 public viewStruct extractView(loc vw) throws ParseError {
     View viewTree = parse(#start[View], vw).top;
@@ -59,14 +59,16 @@ public viewStruct extractView(loc vw) throws ParseError {
 					grammarName,
 					"<viewTree.t>",
 	        		( ev:<"<tm>",""> | (LocalTokenDef) `<InEvent ev> <Identifier tm>` <- viewTree.e),
-	        		( ev:<"<tm>",""> | (LocalTokenDef) `<OutEvent ev> <Identifier tm>` <- viewTree.e)>);
+	        		( ev:<"<tm>",""> | (LocalTokenDef) `<OutEvent ev> <Identifier tm>` <- viewTree.e),
+	        		("<viewTree.nf>" == "noField" ? true : false)>);
 		} else if(viewTree is GlobalView) {
 			return generateUniqueEventNames(
 	    			<"<viewTree.v>",
 					grammarName,
 					"",
 	        		(),
-	        		( d.event:<"<d.terminal>",""> | (GlobalTokenDef) d <- viewTree.e)>);
+	        		( d.event:<"<d.terminal>",""> | (GlobalTokenDef) d <- viewTree.e),
+	        		false>);
 		}
 	} else {
 		throw "grammar filename must have .g extension";

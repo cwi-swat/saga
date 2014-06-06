@@ -11,7 +11,7 @@ extend lang::java::\syntax::BigJava;
 import lang::view::\syntax::View;
 import lang::antlr::\syntax::ANTLR;
 
-alias viewStruct = tuple[str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens];
+alias viewStruct = tuple[str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens, bool noField];
 
 @doc{ 
 This is the main function of this application:
@@ -42,6 +42,7 @@ public void generate(loc view) {
   println("Generating tracing aspect");
   loc aspectLoc = view[file=h.history+"Aspect.java"];
   str historyAspect;
+  println("Aspect saved to <aspectLoc>...");
   if(h.typeName != "") { // Local view
   	historyAspect = localAspect(h, grammarTree);
   } else { // Global view
@@ -190,9 +191,10 @@ private list[str] formalsToPrintables({FormalParameter ","}* formals, str histor
  * @param typeName	The type of the object under test
  * @param eventName	The token class storing the attributes involved in the event
  * @param viewName	The name of the enclosing communication view
+ * @param noField   Should intertype declarations be used to add history as a new field to the created object?
  * @return			The pointcut (as a string) for the communication event
 */
-private str pointcutCons(InEvent e, str typeName, str eventName, str viewName) {
+private str pointcutCons(InEvent e, str typeName, str eventName, str viewName, bool noField) {
 	staticParams = [ elem | elem <- e.h.p.elements];
 	clr = [FormalParameter] "Object clr";
 	params = [clr, *staticParams];
@@ -205,7 +207,7 @@ return "/* <e.h.m> new(<e.h.p>) */
        'after(<makeParameters(params)>) returning(<typeName> ret):
        '  (call(<e.h.m> *.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '	<if(/java(x?)\..*/ := typeName) {>
+       '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(ret) == null) {
        '			h.put(ret, new <viewName>());
        '		}
@@ -218,7 +220,7 @@ return "/* <e.h.m> new(<e.h.p>) */
        'after(<makeParameters(staticParams)>) returning(<typeName> ret): // from static method
        '  (call(<e.h.m> *.new(..)) && !this(Object) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '	<if(/java(x?)\..*/ := typeName) {>
+       '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(ret) == null) {
        '			h.put(ret, new <viewName>());
        '		}
@@ -235,9 +237,10 @@ return "/* <e.h.m> new(<e.h.p>) */
  * @param typeName	The type of the object under test
  * @param eventName	The token class storing the attributes involved in the event
  * @param viewName	The name of the enclosing communication view
+ * @param noField   Should intertype declarations be used to add history as a new field to the callee?
  * @return			The pointcut (as a string) for the communication event
 */
-private str pointcutMethod(InEvent e, str typeName, str eventName, str viewName) {
+private str pointcutMethod(InEvent e, str typeName, str eventName, str viewName, bool noField) {
 	assert /(Modifier) `static` !:= e.h.m:
 	       "Provided methods in local histories cannot be static: <trim("<e.h>")>";
 	cle = [FormalParameter] "<typeName> cle";
@@ -256,7 +259,7 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
-       '	<if(/java(x?)\..*/ := typeName) {>
+       '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(cle) == null) {
        '			h.put(cle, new <viewName>());
        '		}
@@ -269,7 +272,7 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<makeParameters(staticParams)>)<retNonVoid>: // from static method
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '	<if(/java(x?)\..*/ := typeName) {>
+       '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(cle) == null) {
        '			h.put(cle, new <viewName>());
        '		}
@@ -286,9 +289,10 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
  * @param typeName	The type of the object under test
  * @param eventName	The token class storing the attributes involved in the event
  * @param viewName	The name of the enclosing communication view
+ * @param noField   Should intertype declarations be used to add history as a new field to the caller?
  * @return			The pointcut (as a string) for the communication event
 */
-private str pointcutCons(OutEvent e, str typeName, str eventName, str viewName) {
+private str pointcutCons(OutEvent e, str typeName, str eventName, str viewName, bool noField) {
 	params = [elem | elem <- e.h.p.elements];
 	histParams = params;
 	clr =[FormalParameter] "<typeName> clr";
@@ -306,7 +310,7 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.t>+.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '	<if(/java(x?)\..*/ := typeName) {>
+       '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(clr) == null) {
        '			h.put(clr, new <viewName>());
        '		}
@@ -323,10 +327,10 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
  * @param typeName	The type of the object under test
  * @param eventName	The token class storing the attributes involved in the event
  * @param viewName	The name of the enclosing communication view
+ * @param noField   Should intertype declarations be used to add history as a new field to the caller?
  * @return			The pointcut (as a string) for the communication event
 */
-private str pointcutMethod(OutEvent e, str typeName, str eventName, str viewName) {
-	//params = e.h.d.p;
+private str pointcutMethod(OutEvent e, str typeName, str eventName, str viewName, bool noField) {
 	params = [elem | elem <- e.h.d.p.elements];
 	histParams = params;
 	clr = [FormalParameter] "<typeName> clr";
@@ -348,7 +352,7 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
-       '	<if(/java(x?)\..*/ := typeName) {>
+       '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(clr) == null) {
        '			h.put(clr, new <viewName>());
        '		}
@@ -362,7 +366,7 @@ return "
        '<callRet>(<makeParameters(staticParams)>)<retNonVoid>: // static method
        '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-       '	<if(/java(x?)\..*/ := typeName) {>
+       '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(clr) == null) {
        '			h.put(clr, new <viewName>());
        '		}
@@ -422,7 +426,6 @@ private str pointcutMethod(OutEvent e, str eventName, str viewName) {
 	histParams = staticParams1;
 	cle = [FormalParameter] "<e.h.t> cle";
 	clr = [FormalParameter] "Object clr";
-	ret = [FormalParameter] "<e.h.r> ret";
 	staticParams2 = [cle, *staticParams1];
 	staticParams1 = [clr, *staticParams1];
 	params = [clr, *staticParams2];
@@ -466,7 +469,6 @@ return "
 
 private str localAspect(viewStruct hv, ANTLR grammar) {
   FormalParameters attributes = getAttributesFromGrammar(grammar);
-
 return "<grammar.h ? "">
        'import java.util.IdentityHashMap; // stores objToId
        'import org.antlr.runtime.*; // for use in <hv.history>
@@ -476,7 +478,7 @@ return "<grammar.h ? "">
        'import java.util.HashMap; // for use in <hv.history>
        '
        'aspect <hv.history>Aspect {
-       '	<if(/java(x?)\..*/ := hv.typeName) {>
+       '	<if(/java(x?)\..*/ := hv.typeName || hv.noField) {>
        '		private static IdentityHashMap\<Object, <hv.history>\> h = new IdentityHashMap\<Object, <hv.history>\>();
        '	<} else {>
        '  	  private <hv.history> <hv.typeName>.h = new <hv.history>();
@@ -505,12 +507,12 @@ return "<grammar.h ? "">
        '/////////////////////// Aspects ///////////////////////
        '///////////////////////////////////////////////////////
        '<for (InEvent e <- hv.inTokens) {>
-       '    <if(e is InCall) {> <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, hv.history)>
-       '    <} else          {> <pointcutCons(e, hv.typeName, hv.inTokens[e].name, hv.history)> <}>
+       '    <if(e is InCall) {> <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
+       '    <} else          {> <pointcutCons(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)> <}>
        '<}>
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <if(e is OutCall) {> <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, hv.history)>
-       '    <} else           {> <pointcutCons(e,hv.typeName, hv.outTokens[e].name, hv.history)> <}>
+       '    <if(e is OutCall) {> <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
+       '    <} else           {> <pointcutCons(e,hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)> <}>
        '<}>
        '}";
 }
