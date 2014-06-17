@@ -1,0 +1,4 @@
+1. Generate aspect and parser for attribute grammar, then compile all sources:
+   mvn clean package
+2. Start the program with assertions enabled (-ea) and antlr and aspectj in the classpath. The program prints the contents of this file (./USAGE) and then fails:
+   java -cp target/lib/antlr-runtime-3.4.jar:target/lib/aspectjrt-1.7.3.jar:target/breader-1.0-SNAPSHOT.jar -ea nl.cwi.saga.breader.BReader ./USAGE

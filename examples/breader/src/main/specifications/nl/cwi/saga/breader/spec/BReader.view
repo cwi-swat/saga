@@ -1,0 +1,5 @@
+local view BReaderHistory grammar BReader.g specifies java.io.BufferedReader {
+                new(Reader in)  OPEN,
+    call String readLine()      READ,
+    call void   close()         CLOSE
+}
