@@ -19,7 +19,7 @@
 		<version.rascal>0.6.2.201405101911</version.rascal>
 
 		<antlr.src>${project.basedir}/src/main/specifications</antlr.src>
-		<rascal.src>${project.basedir}/src/main/rascal-aspects-generator</rascal.src>
+		<rascal.src>${project.basedir}/../../src</rascal.src>
 		<generated.source>${project.build.directory}/aspect</generated.source>
 		<specification.src>${antlr.src}/nl/cwi/saga/breader/spec</specification.src>
 		<rascal.target>${generated.source}/nl/cwi/saga/breader/spec</rascal.target>
