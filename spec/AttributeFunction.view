@@ -1,4 +1,0 @@
-local view AttributeFunctionHistory grammar AttributeFunction.g specifies com.fredhopper.attribute.function.AttributeFunction {
-	call void init(RequestContext ctx, AttributeFunctionProperties properties, List queryParams, String args) INIT,
-	call float floatValue(Item item) USE
-}
