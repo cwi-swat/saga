@@ -1,0 +1,4 @@
+global view PingPongHistory grammar PingPong.g {
+    call void Ping.ping(Pong opp) PING,
+    call void Pong.pong(Ping opp) PONG
+}
