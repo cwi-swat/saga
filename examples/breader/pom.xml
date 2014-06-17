@@ -18,10 +18,16 @@
 		<version.aspectj>1.7.3</version.aspectj>
 		<version.rascal>0.6.2.201405101911</version.rascal>
 
-		<antlr.src>${project.basedir}/src/main/specifications</antlr.src>
-		<rascal.src>${project.basedir}/../../src</rascal.src>
+		<!-- The folder in which the aspect, the Java Parser and Lexer will be generated in -->
 		<generated.source>${project.build.directory}/aspect</generated.source>
-		<specification.src>${antlr.src}/nl/cwi/saga/breader/spec</specification.src>
+
+		<!-- The path to Generator.rsc -->
+		<rascal.src>${project.basedir}/../../src</rascal.src>
+
+		<!-- The path to the root dir containing specifications -->
+		<antlr.src>${project.basedir}/src/main/specifications</antlr.src>
+
+		<!-- The folder containing .view and .g files -->
 		<rascal.target>${generated.source}/nl/cwi/saga/breader/spec</rascal.target>
 	</properties>
 
