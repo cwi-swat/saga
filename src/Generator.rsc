@@ -22,9 +22,9 @@ to the folder in which 'view' resides.
 }
 
 public int main(list[str] p) {
-	for(str s <- p) {
-		generate(readTextValueString(#loc, "|<s>|"));
-	}
+    for(str s <- p) {
+        generate(readTextValueString(#loc, "|<s>|"));
+    }
 	return 0;
 }
 
@@ -32,7 +32,7 @@ public void generate(loc view) {
   if(view.extension != "view")
     throw "expected .view extension of file <view>";
 
-  println("Parsing communication view");
+  println("Starting SAGA version 0.1.3");
   h = extractView(view);
  
   println("=============== Processing communication view: " + h.history + " ===============");
@@ -44,9 +44,9 @@ public void generate(loc view) {
   str historyAspect;
   println("Aspect saved to <aspectLoc>...");
   if(h.typeName != "") { // Local view
-  	historyAspect = localAspect(h, grammarTree);
+      historyAspect = localAspect(h, grammarTree);
   } else { // Global view
-  	historyAspect = globalAspect(h, grammarTree);
+      historyAspect = globalAspect(h, grammarTree);
   }
   writeFile(aspectLoc,historyAspect);
   println("Successfully wrote tracing aspect to <aspectLoc>");
@@ -90,14 +90,23 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
     return result.elements;
 }
 
+/* Creates a token class representing an incoming constructor return in local history of object of type typeName
+ * to store the attributes involved in the event
+ * @param e  		The event for which the token class must be created
+ * @param typeName	The type of the object under test
+ * @param eventName	The name that will be used for the token class storing the attributes involved in the event
+ * @param historyClass	The name of the history class (only used for printing)
+ * @return			The token class (as a string) for the communication event
+*/
 private str tokenClassCons(InEvent e, str typeName, str eventName, str historyClass) {
-	{FormalParameter ","}* params = e.h.p.elements;
+	params = [elem | elem <- e.h.p.elements];
 	caller = [FormalParameter] "Object caller";
 	callee = [FormalParameter] "<typeName> callee";
 	result = [FormalParameter] "<typeName> result";
+	thread = [FormalParameter] "long threadId";
+	params = [caller, callee, *params, result, thread];
 	
-	params = makeParameters([caller, callee, *[elem | elem <- e.h.p.elements], result]);
-	return txtTokenClass(params, eventName, "<typeName>", historyClass);
+	return txtTokenClass(makeParameters(params), eventName, typeName, historyClass);
 }
 
 private str tokenClassMethod(InEvent e, str typeName, str eventName, str historyClass) {
@@ -110,6 +119,8 @@ private str tokenClassMethod(InEvent e, str typeName, str eventName, str history
 	  result = [FormalParameter] "<e.h.r> result";
 	  params = params + [result];
 	}
+	thread = [FormalParameter] "long threadId";
+	params = [*params, thread];
 	
 	return txtTokenClass(makeParameters(params), eventName, "<e.h.d.id>", historyClass);
 }
@@ -124,6 +135,8 @@ private str tokenClassCons(OutEvent e, str typeName, str eventName, str historyC
 	  result = <[FormalParameter] "<e.h.t> result">;
 	  params = [*params, result];
 	}
+	thread = [FormalParameter] "long threadId";
+	params = [*params, thread];
 	
 	return txtTokenClass(makeParameters(params), eventName, "new_<e.h.t>", historyClass);
 }
@@ -131,13 +144,15 @@ private str tokenClassCons(OutEvent e, str typeName, str eventName, str historyC
 private str tokenClassMethod(OutEvent e, str typeName, str eventName, str historyClass) {
 	params = [ elem | elem <- e.h.d.p.elements];
 	caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
-    callee = [FormalParameter] "<e.h.t> callee";
+	callee = [FormalParameter] "<e.h.t> callee";
 	params = [caller, callee, *params];
 	
 	if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
 	  result = [FormalParameter] "<e.h.r> result";
 	  params = [*params, result];
 	}
+	thread = [FormalParameter] "long threadId";
+	params = [*params, thread];
 	
 	return txtTokenClass(makeParameters(params), eventName, "<e.h.d.id>", historyClass);
 }
@@ -198,35 +213,38 @@ private str pointcutCons(InEvent e, str typeName, str eventName, str viewName, b
 	staticParams = [ elem | elem <- e.h.p.elements];
 	clr = [FormalParameter] "Object clr";
 	params = [clr, *staticParams];
+	ret = [FormalParameter] "<typeName> ret";
+	histParams = [*staticParams, ret];
+	thread = [FormalParameter] "long threadId";
+	histParams = [*histParams, thread];
 	str aspectName = "<viewName>Aspect";
-    
-    ret = [FormalParameter] "<typeName> ret";
-    histParams = [*staticParams, ret];
-    
+	
 return "/* <e.h.m> new(<e.h.p>) */
        'after(<makeParameters(params)>) returning(<typeName> ret):
        '  (call(<e.h.m> *.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '        long threadId = Thread.currentThread().getId();
        '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(ret) == null) {
        '			h.put(ret, new <viewName>());
        '		}
-       '		h.get(ret).update(new <eventName>(clr, null, <formalsToParams(histParams)>));
+       '		h.get(ret).update(new <eventName>(clr, ret, <formalsToParams(histParams)>));
        '	<} else {>
-       '		ret.h.update(new <eventName>(clr, null, <formalsToParams(histParams)>));
+       '		ret.h.update(new <eventName>(clr, ret, <formalsToParams(histParams)>));
        '	<}>
        '}
        '
        'after(<makeParameters(staticParams)>) returning(<typeName> ret): // from static method
        '  (call(<e.h.m> *.new(..)) && !this(Object) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '        long threadId = Thread.currentThread().getId();
        '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(ret) == null) {
        '			h.put(ret, new <viewName>());
        '		}
-       '		h.get(ret).update(new <eventName>(null, null, <formalsToParams(histParams)>));
+       '		h.get(ret).update(new <eventName>(null, ret, <formalsToParams(histParams)>));
        '	<} else {>
-       '		ret.h.update(new <eventName>(null, null, <formalsToParams(histParams)>));
+       '		ret.h.update(new <eventName>(null, ret, <formalsToParams(histParams)>));
        '	<}>
        '}
        ";
@@ -254,11 +272,14 @@ private str pointcutMethod(InEvent e, str typeName, str eventName, str viewName,
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
 	histParams = retNonVoidMethod ? (staticParams + [FormalParameter] "<e.h.r> ret")
 								  : staticParams;
+	thread = [FormalParameter] "long threadId";
+	histParams = [*histParams, thread];
 
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
+       '        long threadId = Thread.currentThread().getId();
        '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(cle) == null) {
        '			h.put(cle, new <viewName>());
@@ -272,6 +293,7 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<makeParameters(staticParams)>)<retNonVoid>: // from static method
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '        long threadId = Thread.currentThread().getId();
        '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(cle) == null) {
        '			h.put(cle, new <viewName>());
@@ -305,11 +327,14 @@ private str pointcutCons(OutEvent e, str typeName, str eventName, str viewName, 
 	
 	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
 								  : histParams;
+	thread = [FormalParameter] "long threadId";
+	histParams = [*histParams, thread];
 
 return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.t>+.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '        long threadId = Thread.currentThread().getId();
        '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(clr) == null) {
        '			h.put(clr, new <viewName>());
@@ -346,12 +371,15 @@ private str pointcutMethod(OutEvent e, str typeName, str eventName, str viewName
 	
 	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.r> ret")
 								  : histParams;
+	thread = [FormalParameter] "long threadId";
+	histParams = [*histParams, thread];
 	
 	if(/(Modifier) `static` !:= e.h.m) { // non-static method
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
+       '        long threadId = Thread.currentThread().getId();
        '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(clr) == null) {
        '			h.put(clr, new <viewName>());
@@ -366,6 +394,7 @@ return "
        '<callRet>(<makeParameters(staticParams)>)<retNonVoid>: // static method
        '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '        long threadId = Thread.currentThread().getId();
        '	<if(/java(x?)\..*/ := typeName || noField) {>
        '    	if(h.get(clr) == null) {
        '			h.put(clr, new <viewName>());
@@ -398,18 +427,22 @@ private str pointcutCons(OutEvent e, str eventName, str viewName) {
 	
 	histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
 								  : histParams;
+	thread = [FormalParameter] "long threadId";
+	histParams = [*histParams, thread];
 	
 	
 return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.t>+.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    long threadId = Thread.currentThread().getId();
        '    h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
        '}
        '
        '<callRet>(<e.h.p>)<retNonVoid>: // static method
        '  (call(<e.h.m>  <e.h.t>+.new(..)) && !this(Object) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    long threadId = Thread.currentThread().getId();
        '    h.update(new <eventName>(null, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
        '}
        ";
@@ -436,18 +469,22 @@ private str pointcutMethod(OutEvent e, str eventName, str viewName) {
 	str callRet           = ("<e.cr>" == "call") ? "before" : "after";
 	
 	histParams = retNonVoidMethod ? [*histParams, ret]: histParams;
+	thread = [FormalParameter] "long threadId";
+	histParams = [*histParams, thread];
 	
 	if(/(Modifier) `static` !:= e.h.m) { // to non-static method
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
 	   '<callRet>(<makeParameters(params)>)<retNonVoid>: // from non-static method to non-static method
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
+       '    long threadId = Thread.currentThread().getId();
        '    h.update(new <eventName>(clr, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
        '}
        '
        '<callRet>(<makeParameters(staticParams2)>)<retNonVoid>: // from static method to non-static method
        '  (call(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    long threadId = Thread.currentThread().getId();
        '    h.update(new <eventName>(null, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
        '}";
 	} else { // to static method
@@ -455,12 +492,14 @@ return "
        '<callRet>(<makeParameters(staticParams1)>)<retNonVoid>: // from non-static method to static method
        '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    long threadId = Thread.currentThread().getId();
        '    h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
        '}
        '
        '<callRet>(<e.h.d.p>)<retNonVoid>: // from static method to static method
        '  (call(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && !this(Object) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
+       '    long threadId = Thread.currentThread().getId();
        '    h.update(new <eventName>(null, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
        '}
        ";
