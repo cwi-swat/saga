@@ -69,7 +69,7 @@
 
 		<plugins>
 			<!-- Generate lexer and parser for grammars -->
-			<!-- Must be in a phase after compile (but before AspectJ), if the grammar references the aspect -->
+			<!-- Must be in a phase after compile (but before AspectJ, if the grammar references types defined in the aspect) -->
 			<!-- WARNING: Grammars _MUST_ be located in a subfolder of sourceDirectory. By default, this is src/main/antlr3 -->
 			<!-- For documentation of this plugin, see https://android.googlesource.com/platform/external/antlr/+/refs/tags/android-4.1.2_r2.1/antlr-3.4/antlr3-maven-plugin/src/site/apt/usage.apt.vm -->
 			<plugin>
