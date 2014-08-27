@@ -3,13 +3,13 @@
 \usepackage{hyperref} % for \url{}
 \usepackage{listings} % for source code
 \usepackage{syntax} %for typesettings BNF grammars
+\usepackage{graphicx} %for screenshots
 
 \begin{document}
 
 \title{SAGA User Manual}
 \date{}
 
-\author{Stijn de Gouw}
 \maketitle
 
 \section{Introduction}
@@ -139,7 +139,35 @@ To create your own project, take the BufferedReader project as a template and ad
 %\end{enumerate}
 
 
-%section{Eclipse Plugin}
+\section{Eclipse Plugin}
+There is an Eclipse project of SAGA which allows editing of communication views with
+syntax highlighting.  The project uses the Rascal Eclipse plugin for parsing.
+Follow the below steps to use the SAGA eclipse project:
+\begin{enumerate}
+  \item Install Eclipse for RCP and RAP Developers and the Rascal Eclipse plugin. See \url{http://www.rascal-mpl.org/start/} for detailed instructions.
+  \item Download SAGA project ZIP-file from Github (click ``Download ZIP'' on \url{https://github.com/cwi-swat/saga})
+  \item Import the ZIP as a new Eclipse project:
+      \begin{enumerate}
+         \item Right click in the Package Explorer
+         \item Click Import\ldots
+         \item Select General \textgreater\ Existing project into workspace \textgreater\ Next
+         \item Select archive file and browse to the ZIP
+         \item Click Finish
+      \end{enumerate}
+  \item In the newly imported project ``Saga'', in the package explorer, double click the file src \textgreater\ GeneratorEclipse.rsc
+  \item Right click in the text editor that opens and select Start Console. A command prompt rascal\textgreater\ is opened.
+  \item Execute the following commands:
+\begin{lstlisting}
+    rascal>import GeneratorEclipse;
+    ok
+
+    rascal>enableSyntaxHighlighting();
+    ok
+\end{lstlisting}
+  \item Open the file with your communication view from the Eclipse package explorer.  The view is syntax highlighted automatically upon opening:
+  \includegraphics[scale=0.2]{syntaxHighlighting}
+\end{enumerate}
+
 
 
 \bibliographystyle{abbrv}
