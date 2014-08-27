@@ -2,10 +2,8 @@
 module GeneratorEclipse
 
 import util::IDE;
-extend Generator;
+import lang::view::\syntax::View;
 
-public int main() {
+public void enableSyntaxHighlighting() {
 	registerLanguage("VIEW", "view", start[View] (str s, loc l) { return view(s, l); });
-	registerLanguage("ANTLR", "g", start[ANTLR] (str s, loc l) { return antlr(s, l); });
-	return 0;
 }
