@@ -515,7 +515,8 @@ return "<grammar.h ? "">
        'import java.util.Iterator; // for use in <hv.history>
        'import java.util.HashSet; // for use in <hv.history>
        'import java.util.HashMap; // for use in <hv.history>
-       'import java.io.Serializable; // for serializing trace
+       'import java.io.*; // for serializing trace
+       'import java.util.UUID; //for storing object id\'s for serialization 
        '
        'aspect <hv.history>Aspect {
        '    <if(/java(x?)\..*/ := hv.typeName || hv.noField) {>
@@ -567,7 +568,8 @@ return "<grammar.h ? "">
        'import java.util.Iterator; // for use in <hv.history>
        'import java.util.HashSet; // for use in <hv.history>
        'import java.util.HashMap; // for use in <hv.history>
-       'import java.io.Serializable; // for serializing trace
+       'import java.io.*; // for serializing trace
+       'import java.util.UUID; //for storing object id\'s for serialization 
        '
        'aspect <hv.history>Aspect {
        '    static <hv.history> h = new <hv.history>();
@@ -603,23 +605,23 @@ return "public synchronized void update(<eventName> e) {
        '
        '
        '     if(!objToId.containsKey(e.caller())) { // for printing
-       '         objToId.put(e.caller(), objToId.size());
-       '         idToObj.put(idToObj.size(),e.caller());
+       '         objToId.put(e.caller(), new UUID(0, objToId.size()));
+       '         idToObj.put(new UUID(0, idToObj.size()),e.caller());
        '     }
        '     if(!objToId.containsKey(e.callee())) { // for printing
-       '         objToId.put(e.callee(), objToId.size());
-       '         idToObj.put(idToObj.size(),e.callee());
+       '         objToId.put(e.callee(), new UUID(0, objToId.size()));
+       '         idToObj.put(new UUID(0, idToObj.size()),e.callee());
        '     }
        '     <if(callRet == "return" && retType != (MethodRes) `void`) {>
        '     if(!objToId.containsKey(e.result())) { // for printing
-       '         objToId.put(e.result(), objToId.size());
-       '         idToObj.put(idToObj.size(),e.result());
+       '         objToId.put(e.result(), new UUID(0, objToId.size()));
+       '         idToObj.put(new UUID(0, idToObj.size()),e.result());
        '     }           
        '     <}>
        '     <for(FormalParameter f <- params) {>
        '     if(!objToId.containsKey(e.<f.v>())) { // for printing
-       '         objToId.put(e.<f.v>(), objToId.size());
-       '         idToObj.put(idToObj.size(),e.<f.v>());
+       '         objToId.put(e.<f.v>(), new UUID(0, objToId.size()));
+       '         idToObj.put(new UUID(0, idToObj.size()),e.<f.v>());
        '     }
        '     <}>
        '     actors.add(objToId.get(e.caller()));
@@ -632,9 +634,9 @@ return "public synchronized void update(<eventName> e) {
 private str historyContainer(viewStruct hv, FormalParameters attributes) {
 return "
        'public static class <hv.history> implements TokenSource, Serializable {
-       '  public  static IdentityHashMap\<Object, Integer\> objToId = new IdentityHashMap\<Object, Integer\>();
-       '  public  static HashMap\<Integer, Object\> idToObj = new HashMap\<Integer, Object\>();
-       '  private HashSet\<Integer\> actors = new HashSet\<Integer\>();
+       '  public  static IdentityHashMap\<Object, UUID\> objToId = new IdentityHashMap\<Object, UUID\>();
+       '  public  static HashMap\<UUID, Object\> idToObj = new HashMap\<UUID, Object\>();
+       '  private HashSet\<UUID\> actors = new HashSet\<UUID\>();
        '
        '  private ArrayList\<CommonToken\> _L = new ArrayList\<CommonToken\>();
        '  private Integer _currentToken;
@@ -661,9 +663,9 @@ return "
        '    <}>
        '
        '    // Print actors of the sequence diagram
-       '    Iterator\<Integer\> it = actors.iterator();
+       '    Iterator\<UUID\> it = actors.iterator();
        '    while(it.hasNext()) {
-       '        Integer objId = it.next();
+       '        UUID objId = it.next();
        '        if(idToObj.get(objId) != null) {
        '          System.out.println(\"o\" + objId + \":\" + idToObj.get(objId).getClass().getName());
        '        } else {
