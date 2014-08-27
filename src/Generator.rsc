@@ -515,6 +515,7 @@ return "<grammar.h ? "">
        'import java.util.Iterator; // for use in <hv.history>
        'import java.util.HashSet; // for use in <hv.history>
        'import java.util.HashMap; // for use in <hv.history>
+       'import java.io.Serializable; // for serializing trace
        '
        'aspect <hv.history>Aspect {
        '    <if(/java(x?)\..*/ := hv.typeName || hv.noField) {>
@@ -566,6 +567,7 @@ return "<grammar.h ? "">
        'import java.util.Iterator; // for use in <hv.history>
        'import java.util.HashSet; // for use in <hv.history>
        'import java.util.HashMap; // for use in <hv.history>
+       'import java.io.Serializable; // for serializing trace
        '
        'aspect <hv.history>Aspect {
        '    static <hv.history> h = new <hv.history>();
@@ -629,7 +631,7 @@ return "public synchronized void update(<eventName> e) {
 
 private str historyContainer(viewStruct hv, FormalParameters attributes) {
 return "
-       'public static class <hv.history> implements TokenSource {
+       'public static class <hv.history> implements TokenSource, Serializable {
        '  public  static IdentityHashMap\<Object, Integer\> objToId = new IdentityHashMap\<Object, Integer\>();
        '  public  static HashMap\<Integer, Object\> idToObj = new HashMap\<Integer, Object\>();
        '  private HashSet\<Integer\> actors = new HashSet\<Integer\>();
