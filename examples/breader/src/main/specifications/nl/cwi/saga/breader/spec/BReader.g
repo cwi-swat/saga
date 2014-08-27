@@ -4,7 +4,6 @@ grammar BReader;
 	package nl.cwi.saga.breader.spec;
 
 	import nl.cwi.saga.breader.spec.*;
-	import java.io.*;
 }
 
 @lexer::header {
