@@ -705,11 +705,13 @@ return "
        '  public <t> <id>() {
        '    return _start;
        '  }
-       '  <} else {><for (FormalParameter f <- attributes.elements) {>
-       '  public <f.t> <f.v>() {
-       '    return _start.<f.v>;
-       '  }
-       '  <}><}>
+       '  <} else {>
+       '    <for (FormalParameter f <- attributes.elements) {>
+       '      public <f.t> <f.v>() {
+       '        return _start.<f.v>;
+       '      }
+       '    <}>
+       '  <}>
        '
        '  <for (InEvent e <- hv.inTokens) {>
        '    <if(e is InCall) {>
