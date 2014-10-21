@@ -508,6 +508,7 @@ return "
 
 private str localAspect(viewStruct hv, ANTLR grammar) {
   FormalParameters attributes = getAttributesFromGrammar(grammar);
+
 return "<grammar.h ? "">
        'import java.util.IdentityHashMap; // stores objToId
        'import org.antlr.runtime.*; // for use in <hv.history>
@@ -528,12 +529,19 @@ return "<grammar.h ? "">
        '/////////////////////// Event classes /////////////////
        '///////////////////////////////////////////////////////
        '<for (InEvent e <- hv.inTokens) {>
-       '<if(e is InCall)  {> <tokenClassMethod(e, hv.typeName, hv.inTokens[e].name, hv.history)>
-       '<} else           {> <tokenClassCons(e, hv.typeName, hv.inTokens[e].name, hv.history)> <}>
+       '  <println("x")>
+       '  <if(e is InCall)  {>
+       '    <tokenClassMethod(e, hv.typeName, hv.inTokens[e].name, hv.history)>
+       '  <} else {> <if(e is InCons) {>
+       '    <tokenClassCons(e, hv.typeName, hv.inTokens[e].name, hv.history)>
+       '  <}> <}>
        '<}>
        '<for (OutEvent e <- hv.outTokens) {>
-       '<if(e is OutCall) {> <tokenClassMethod(e, hv.typeName, hv.outTokens[e].name, hv.history)>
-       '<} else           {> <tokenClassCons(e, hv.typeName, hv.outTokens[e].name, hv.history)> <}>
+       '  <if(e is OutCall) {>
+       '    <tokenClassMethod(e, hv.typeName, hv.outTokens[e].name, hv.history)>
+       '  <} else {> <if(e is OutCons) {>
+       '    <tokenClassCons(e, hv.typeName, hv.outTokens[e].name, hv.history)>
+       '  <}> <}>
        '<}>
        '
        '///////////////////////////////////////////////////////
@@ -546,12 +554,18 @@ return "<grammar.h ? "">
        '/////////////////////// Aspects ///////////////////////
        '///////////////////////////////////////////////////////
        '<for (InEvent e <- hv.inTokens) {>
-       '    <if(e is InCall) {> <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
-       '    <} else          {> <pointcutCons(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)> <}>
+       '  <if(e is InCall) {>
+       '    <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
+       '  <} else {> <if(e is InCons) {>
+       '    <pointcutCons(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
+       '  <}> <}>
        '<}>
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <if(e is OutCall) {> <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
-       '    <} else           {> <pointcutCons(e,hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)> <}>
+       '  <if(e is OutCall) {>
+       '    <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
+       '  <} else {> <if(e is InCons) {>
+       '    <pointcutCons(e,hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
+       '  <}> <}>
        '<}>
        '}";
 }
@@ -574,8 +588,11 @@ return "<grammar.h ? "">
        '/////////////////////// Event classes /////////////////
        '///////////////////////////////////////////////////////
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <if(e is OutCall) {> <tokenClassMethod(e, "", hv.outTokens[e].name, hv.history)>
-       '    <} else           {> <tokenClassCons(e, "", hv.outTokens[e].name, hv.history)> <}>
+       '  <if(e is OutCall) {>
+       '    <tokenClassMethod(e, "", hv.outTokens[e].name, hv.history)>
+       '  <} else {> <if(e is OutCons) {>
+       '    <tokenClassCons(e, "", hv.outTokens[e].name, hv.history)>
+       '  <}> <}>
        '<}>
        '
        '///////////////////////////////////////////////////////
@@ -588,8 +605,11 @@ return "<grammar.h ? "">
        '/////////////////////// Aspects ///////////////////////
        '///////////////////////////////////////////////////////
        '<for (OutEvent e <- hv.outTokens) {>
-       '    <if(e is OutCall) {> <pointcutMethod(e, hv.outTokens[e].name, hv.history)>
-       '    <} else           {> <pointcutCons(e, hv.outTokens[e].name, hv.history)> <}>
+       '  <if(e is OutCall) {>
+       '    <pointcutMethod(e, hv.outTokens[e].name, hv.history)>
+       '  <} else {> <if(e is OutCons) {>
+       '    <pointcutCons(e, hv.outTokens[e].name, hv.history)>
+       '  <}> <}>
        '<}>
        '}";
 }
@@ -711,12 +731,16 @@ return "
        '  <}><}>
        '
        '  <for (InEvent e <- hv.inTokens) {>
-       '  <if(e is InCall) {> <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p.elements, hv.inTokens[e].name, hv.inTokens[e].token)>
-       '  <} else          { typeName = [MethodRes] "<hv.typeName>";> <updateMethod(hv.grammar, "return", (MethodRes) `<MethodRes typeName>`, e.h.p.elements, hv.inTokens[e].name, hv.inTokens[e].token)> <}>
+       '    <if(e is InCall) {>
+       '      <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p.elements, hv.inTokens[e].name, hv.inTokens[e].token)>
+       '    <} else          { typeName = [MethodRes] "<hv.typeName>";> <updateMethod(hv.grammar, "return", (MethodRes) `<MethodRes typeName>`, e.h.p.elements, hv.inTokens[e].name, hv.inTokens[e].token)> <}>
        '  <}>
        '  <for (OutEvent e <- hv.outTokens) {>
-       '  <if(e is OutCall) {> <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p.elements, hv.outTokens[e].name, hv.outTokens[e].token)>
-       '  <} else           { typeName = [MethodRes] "<e.h.t>";> <updateMethod(hv.grammar, "<e.cr>", (MethodRes) `<MethodRes typeName>`, e.h.p.elements, hv.outTokens[e].name, hv.outTokens[e].token)> <}>
+       '    <if(e is OutCall) {>
+       '      <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p.elements, hv.outTokens[e].name, hv.outTokens[e].token)>
+       '    <} else           { typeName = [MethodRes] "<e.h.t>";>
+       '      <updateMethod(hv.grammar, "<e.cr>", (MethodRes) `<MethodRes typeName>`, e.h.p.elements, hv.outTokens[e].name, hv.outTokens[e].token)>
+       '    <}>
        '  <}>
        '}";
 }
