@@ -714,14 +714,16 @@ return "
        '  <for (InEvent e <- hv.inTokens) {>
        '    <if(e is InCall) {>
        '      <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p.elements, hv.inTokens[e].name, hv.inTokens[e].token)>
-       '    <} else          { typeName = [MethodRes] "<hv.typeName>";> <updateMethod(hv.grammar, "return", (MethodRes) `<MethodRes typeName>`, e.h.p.elements, hv.inTokens[e].name, hv.inTokens[e].token)> <}>
+       '    <} else {> <if(e is InCons) { typeName = [MethodRes] "<hv.typeName>";>
+       '      <updateMethod(hv.grammar, "return", (MethodRes) `<MethodRes typeName>`, e.h.p.elements, hv.inTokens[e].name, hv.inTokens[e].token)>
+            <}> <}>
        '  <}>
        '  <for (OutEvent e <- hv.outTokens) {>
        '    <if(e is OutCall) {>
        '      <updateMethod(hv.grammar, "<e.cr>", e.h.r, e.h.d.p.elements, hv.outTokens[e].name, hv.outTokens[e].token)>
-       '    <} else           { typeName = [MethodRes] "<e.h.t>";>
+       '    <} else {> <if(e is OutCons) { typeName = [MethodRes] "<e.h.t>";>
        '      <updateMethod(hv.grammar, "<e.cr>", (MethodRes) `<MethodRes typeName>`, e.h.p.elements, hv.outTokens[e].name, hv.outTokens[e].token)>
-       '    <}>
+       '    <}> <}>
        '  <}>
        '}";
 }
