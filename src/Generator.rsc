@@ -11,7 +11,7 @@ extend lang::java::\syntax::BigJava;
 import lang::view::\syntax::View;
 import lang::antlr::\syntax::ANTLR;
 
-alias viewStruct = tuple[str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens, bool noField];
+alias viewStruct = tuple[ViewType viewType, str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens, bool noField];
 
 @doc{ 
 This is the main function of this application:
@@ -43,7 +43,7 @@ public void generate(loc view) {
   loc aspectLoc = view[file=h.history+"Aspect.java"];
   str historyAspect;
   println("Aspect saved to <aspectLoc>...");
-  if(h.typeName != "") { // Local view
+  if(h.typeName != "") { // Local object view
       historyAspect = localAspect(h, grammarTree);
   } else { // Global view
       historyAspect = globalAspect(h, grammarTree);
