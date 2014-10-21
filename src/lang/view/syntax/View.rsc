@@ -26,11 +26,13 @@ syntax GlobalTokenDef
 
 syntax InEvent
   = InCall: ("call" | "return") cr "ExcludeSelfCalls"? esc MethodHeader h
+  | InExec: "exec" cr MethodHeader h
   | InCons: ConsHeader h
   ;
 
 syntax OutEvent
   = OutCall: ("call" | "return") cr "ExcludeSelfCalls"? esc GlobalMethodHeader h
+  | OutExec: "exec" cr GlobalMethodHeader h
   | OutCons: ("call" | "return") cr GlobalConsHeader h
   ;
   
