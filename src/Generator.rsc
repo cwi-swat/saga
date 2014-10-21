@@ -526,47 +526,36 @@ return "<grammar.h ? "">
        '
        '
        '///////////////////////////////////////////////////////
-       '/////////////////////// Event classes /////////////////
+       '/////////////////////// Events ////////////////////////
        '///////////////////////////////////////////////////////
        '<for (InEvent e <- hv.inTokens) {>
-       '  <println("x")>
        '  <if(e is InCall)  {>
        '    <tokenClassMethod(e, hv.typeName, hv.inTokens[e].name, hv.history)>
+       '    <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
        '  <} else {> <if(e is InCons) {>
        '    <tokenClassCons(e, hv.typeName, hv.inTokens[e].name, hv.history)>
+       '    <pointcutCons(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
        '  <}> <}>
+       '///////////////////////////////////////////////////////
+       '///////////////////////////////////////////////////////
        '<}>
+       '
        '<for (OutEvent e <- hv.outTokens) {>
        '  <if(e is OutCall) {>
        '    <tokenClassMethod(e, hv.typeName, hv.outTokens[e].name, hv.history)>
+       '    <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
        '  <} else {> <if(e is OutCons) {>
        '    <tokenClassCons(e, hv.typeName, hv.outTokens[e].name, hv.history)>
+       '    <pointcutCons(e,hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
        '  <}> <}>
+       '///////////////////////////////////////////////////////
+       '///////////////////////////////////////////////////////
        '<}>
        '
        '///////////////////////////////////////////////////////
        '/////////////////////// History class /////////////////
        '///////////////////////////////////////////////////////
        '    <historyContainer(hv, attributes)>
-       '
-       '
-       '///////////////////////////////////////////////////////
-       '/////////////////////// Aspects ///////////////////////
-       '///////////////////////////////////////////////////////
-       '<for (InEvent e <- hv.inTokens) {>
-       '  <if(e is InCall) {>
-       '    <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
-       '  <} else {> <if(e is InCons) {>
-       '    <pointcutCons(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
-       '  <}> <}>
-       '<}>
-       '<for (OutEvent e <- hv.outTokens) {>
-       '  <if(e is OutCall) {>
-       '    <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
-       '  <} else {> <if(e is InCons) {>
-       '    <pointcutCons(e,hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
-       '  <}> <}>
-       '<}>
        '}";
 }
 
@@ -585,32 +574,24 @@ return "<grammar.h ? "">
        '    static <hv.history> h = new <hv.history>();
        '
        '///////////////////////////////////////////////////////
-       '/////////////////////// Event classes /////////////////
+       '/////////////////////// Events ////////////////////////
        '///////////////////////////////////////////////////////
        '<for (OutEvent e <- hv.outTokens) {>
        '  <if(e is OutCall) {>
        '    <tokenClassMethod(e, "", hv.outTokens[e].name, hv.history)>
+       '    <pointcutMethod(e, hv.outTokens[e].name, hv.history)>
        '  <} else {> <if(e is OutCons) {>
        '    <tokenClassCons(e, "", hv.outTokens[e].name, hv.history)>
+       '    <pointcutCons(e, hv.outTokens[e].name, hv.history)>
        '  <}> <}>
+       '///////////////////////////////////////////////////////
+       '///////////////////////////////////////////////////////
        '<}>
        '
        '///////////////////////////////////////////////////////
        '/////////////////////// History class /////////////////
        '///////////////////////////////////////////////////////
        '    <historyContainer(hv, attributes)>
-       '
-       '
-       '///////////////////////////////////////////////////////
-       '/////////////////////// Aspects ///////////////////////
-       '///////////////////////////////////////////////////////
-       '<for (OutEvent e <- hv.outTokens) {>
-       '  <if(e is OutCall) {>
-       '    <pointcutMethod(e, hv.outTokens[e].name, hv.history)>
-       '  <} else {> <if(e is OutCons) {>
-       '    <pointcutCons(e, hv.outTokens[e].name, hv.history)>
-       '  <}> <}>
-       '<}>
        '}";
 }
 
