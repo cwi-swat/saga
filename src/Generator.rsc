@@ -32,7 +32,7 @@ public void generate(loc view) {
   if(view.extension != "view")
     throw "expected .view extension of file <view>";
 
-  println("Starting SAGA version 0.1.3");
+  println("Starting SAGA version 0.1.4");
   h = extractView(view);
  
   println("=============== Processing communication view: " + h.history + " ===============");
