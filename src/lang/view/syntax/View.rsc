@@ -8,6 +8,7 @@ import String; // for replaceAll
 
 start syntax View
   =  LocalView: "local" "view" Identifier v "grammar" File g "specifies" ClassOrInterfaceType t "noField"? nf "{" {  LocalTokenDef ","}+ e "}"
+  | ThreadView: "thread" "view" Identifier v "grammar" File g                                   "{" { GlobalTokenDef ","}+ e "}"
   | GlobalView: "global" "view" Identifier v "grammar" File g                                   "{" { GlobalTokenDef ","}+ e "}"
   ;
 
@@ -51,6 +52,10 @@ syntax GlobalConsHeader
 
 
 
+
+
+data ViewType = LOCAL() | GLOBAL() | THREAD();
+
 /* Convenient data structure to represent a communication view */
 /* Creates a pointcut for an incoming constructor return in local history of object of type typeName
  * @param history   The name of the communication view (will be used as aspect class name)
@@ -62,12 +67,8 @@ syntax GlobalConsHeader
  *                  where event-name must be unique (will be used as name for token class, update methods, etc.)
  * @param noField   For local object histories, indicates whether to use intertype declarations for saving the
  *                  to a new field (cannot be done for Java system classes), or store it in a separate class.
- *                  Always true for global histories
+ *                  Always true for global histories and thread histories.
 */
-
-
-data ViewType = LOCAL() | GLOBAL() | THREAD();
-
 alias viewStruct = tuple[ViewType viewType, str history, str grammar, str typeName, map[InEvent,tuple[str token, str name]] inTokens, map[OutEvent,tuple[str token, str name]] outTokens, bool noField];
 
 public viewStruct extractView(loc vw) throws ParseError {
@@ -86,6 +87,15 @@ public viewStruct extractView(loc vw) throws ParseError {
 		} else if(viewTree is GlobalView) {
 			return generateUniqueEventNames(
 			        <GLOBAL(),
+	    			"<viewTree.v>",
+					grammarName,
+					"",
+	        		(),
+	        		( d.event:<"<d.terminal>",""> | (GlobalTokenDef) d <- viewTree.e),
+	        		true>);
+		} else if(viewTree is ThreadView) {
+			return generateUniqueEventNames(
+			        <THREAD(),
 	    			"<viewTree.v>",
 					grammarName,
 					"",

@@ -32,7 +32,7 @@ public void generate(loc view) {
   if(view.extension != "view")
     throw "expected .view extension of file <view>";
 
-  println("Starting SAGA version 0.1.3");
+  println("Starting SAGA version 0.1.4");
   h = extractView(view);
  
   println("=============== Processing communication view: " + h.history + " ===============");
@@ -45,7 +45,8 @@ public void generate(loc view) {
   println("Aspect saved to <aspectLoc>...");
   switch(h.viewType) { // Local object view
       case LOCAL(): historyAspect = localAspect(h, grammarTree);
-      case GLOBAL: historyAspect = globalAspect(h, grammarTree);
+      case GLOBAL(): historyAspect = globalAspect(h, grammarTree);
+      case THREAD(): historyAspect = globalAspect(h, grammarTree);
       default: fail;
   }
   writeFile(aspectLoc,historyAspect);
@@ -415,13 +416,13 @@ return "
     }
 }
 
-/* Creates a pointcut for a constructor call/return in global history
+/* Creates a pointcut for a constructor call/return in global or thread history
  * @param e   The event for which a pointcut must be created
  * @param eventName   The token class storing the attributes involved in the event
  * @param viewName   The name of the enclosing communication view
  * @return   The pointcut (as a string) for the communication event
 */
-private str pointcutCons(OutEvent e, str eventName, str viewName) {
+private str pointcutCons(OutEvent e, str eventName, str viewName, ViewType viewType) {
     clr = [FormalParameter] "Object clr";
     thread = [FormalParameter] "long threadId";
     
@@ -436,22 +437,39 @@ private str pointcutCons(OutEvent e, str eventName, str viewName) {
     histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
                                   : histParams;
     histParams = [*histParams, thread];
-    str aspectName = "<viewName>Aspect";
     
+    str adviceStaticToInstance, adviceInstanceToInstance;
+    switch(viewType) {
+    	case GLOBAL(): {
+    			adviceInstanceToInstance = "h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    			adviceStaticToInstance   = "h.update(new <eventName>(null, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    		}
+    	case THREAD(): {
+    			adviceStaticToInstance = adviceInstanceToInstance =
+    			"if(h.get(threadId) == null) {
+    			'    h.put(threadId, new <viewName>());
+    			'}
+    			'";
+    			adviceInstanceToInstance += "h.get(threadId).update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    			adviceStaticToInstance   += "h.get(threadId).update(new <eventName>(null, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    		}
+    }
+    
+    str aspectName = "<viewName>Aspect";
     
 return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.t>+.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '    long threadId = Thread.currentThread().getId();
-       '    h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '    <adviceInstanceToInstance>
        '}
        '
        '<callRet>(<e.h.p>)<retNonVoid>: // static method
        '  (call(<e.h.m>  <e.h.t>+.new(..)) && !this(Object) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
-           '    long threadId = Thread.currentThread().getId();
-       '    h.update(new <eventName>(null, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '    long threadId = Thread.currentThread().getId();
+       '    <adviceStaticToInstance>
        '}
        ";
 }
@@ -462,7 +480,7 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
  * @param viewName   The name of the enclosing communication view
  * @return   The pointcut (as a string) for the communication event
 */
-private str pointcutMethod(OutEvent e, str eventName, str viewName) {
+private str pointcutMethod(OutEvent e, str eventName, str viewName, ViewType viewType) {
     cle = [FormalParameter] "<e.h.t> cle";
     clr = [FormalParameter] "Object clr";
     thread = [FormalParameter] "long threadId";
@@ -480,6 +498,28 @@ private str pointcutMethod(OutEvent e, str eventName, str viewName) {
     
     histParams = retNonVoidMethod ? [*histParams, ret]: histParams;
     histParams = [*histParams, thread];
+    
+    str adviceStaticToStatic, adviceStaticToInstance, adviceInstanceToStatic, adviceInstanceToInstance; 
+    switch(viewType) {
+    	case GLOBAL(): {
+    			adviceStaticToStatic     = "h.update(new <eventName>(null, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    			adviceStaticToInstance   = "h.update(new <eventName>(null, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    			adviceInstanceToStatic   = "h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    			adviceInstanceToInstance = "h.update(new <eventName>(clr, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    		}
+    	case THREAD(): {
+    			adviceStaticToStatic = adviceStaticToInstance = adviceInstanceToStatic = adviceInstanceToInstance =
+    			"if(h.get(threadId) == null) {
+    			'    h.put(threadId, new <viewName>());
+    			'}
+    			'";
+    			adviceStaticToStatic     += "h.get(threadId).update(new <eventName>(null, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    			adviceStaticToInstance   += "h.get(threadId).update(new <eventName>(null, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    			adviceInstanceToStatic   += "h.get(threadId).update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    			adviceInstanceToInstance += "h.get(threadId).update(new <eventName>(clr, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));";
+    		}
+    }
+    
     str aspectName = "<viewName>Aspect";
     
     if(/(Modifier) `static` !:= e.h.m) { // to non-static method
@@ -488,14 +528,14 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
        '  (<callExec>(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
        '    long threadId = Thread.currentThread().getId();
-       '    h.update(new <eventName>(clr, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '    <adviceInstanceToInstance>
        '}
        '
        '<callRet>(<makeParameters(staticParams2)>)<retNonVoid>: // from static method to non-static method
        '  (<callExec>(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && !this(Object) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '    long threadId = Thread.currentThread().getId();
-       '    h.update(new <eventName>(null, cle<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '    <adviceStaticToInstance>
        '}";
     } else { // to static method
 return "
@@ -503,14 +543,14 @@ return "
        '  (<callExec>(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '    long threadId = Thread.currentThread().getId();
-       '    h.update(new <eventName>(clr, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '    <adviceInstanceToStatic>
        '}
        '
        '<callRet>(<e.h.d.p>)<retNonVoid>: // from static method to static method
        '  (<callExec>(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && !this(Object) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '    long threadId = Thread.currentThread().getId();
-       '    h.update(new <eventName>(null, null<histParams != [] ? ", <formalsToParams(histParams)>" : "">));
+       '    <adviceStaticToStatic>
        '}
        ";
     }
@@ -581,7 +621,11 @@ return "<grammar.h ? "">
        'import java.util.HashMap; // for use in <hv.history>
        '
        'aspect <hv.history>Aspect {
-       '    static <hv.history> h = new <hv.history>();
+       '    <if(hv.viewType is GLOBAL) {>
+       '      static <hv.history> h = new <hv.history>();
+       '    <} else {>
+       '      private static IdentityHashMap\<Long, <hv.history>\> h = new IdentityHashMap\<Long, <hv.history>\>();
+       '    <}>
        '
        '///////////////////////////////////////////////////////
        '/////////////////////// Events ////////////////////////
@@ -589,10 +633,10 @@ return "<grammar.h ? "">
        '<for (OutEvent e <- hv.outTokens) {>
        '  <if(e is OutCall || e is OutExec) {>
        '    <tokenClassMethod(e, "", hv.outTokens[e].name, hv.history)>
-       '    <pointcutMethod(e, hv.outTokens[e].name, hv.history)>
+       '    <pointcutMethod(e, hv.outTokens[e].name, hv.history, hv.viewType)>
        '  <} else {> <if(e is OutCons) {>
        '    <tokenClassCons(e, "", hv.outTokens[e].name, hv.history)>
-       '    <pointcutCons(e, hv.outTokens[e].name, hv.history)>
+       '    <pointcutCons(e, hv.outTokens[e].name, hv.history, hv.viewType)>
        '  <}> <}>
        '///////////////////////////////////////////////////////
        '///////////////////////////////////////////////////////
