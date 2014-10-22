@@ -77,7 +77,8 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
            '    this.<f.v> = <f.v>;
            '    <}>
            '  }
-           '}";
+           '}
+           '";
 }
   
 {FormalParameter ","}* makeParameters(list[FormalParameter] params) {
@@ -222,8 +223,7 @@ private str pointcutCons(InEvent e, str typeName, str eventName, str viewName, b
     histParams = [*histParams, thread];
     str aspectName = "<viewName>Aspect";
     
-return "/* <e.h.m> new(<e.h.p>) */
-       'after(<makeParameters(params)>) returning(<typeName> ret):
+return "after(<makeParameters(params)>) returning(<typeName> ret):
        '  (call(<e.h.m> *.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '        long threadId = Thread.currentThread().getId();
@@ -253,7 +253,7 @@ return "/* <e.h.m> new(<e.h.p>) */
        ";
 }
 
-/* Creates a pointcut for an incoming method call/return in local history of object of type typeName
+/* Creates a pointcut for an incoming method call/execution/return in local history of object of type typeName
  * @param e   The event for which a pointcut must be created
  * @param typeName   The type of the object under test
  * @param eventName   The token class storing the attributes involved in the event
@@ -281,8 +281,7 @@ private str pointcutMethod(InEvent e, str typeName, str eventName, str viewName,
     histParams = [*histParams, thread];
     str aspectName = "<viewName>Aspect";
 
-return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
-       '<callRet>(<makeParameters(params)>)<retNonVoid>:
+return "<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (<callExec>(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
        '        long threadId = Thread.currentThread().getId();
@@ -337,8 +336,7 @@ private str pointcutCons(OutEvent e, str typeName, str eventName, str viewName, 
     histParams = [*histParams, thread];
     str aspectName = "<viewName>Aspect";
 
-return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
-       '<callRet>(<makeParameters(params)>)<retNonVoid>:
+return "<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.t>+.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '        long threadId = Thread.currentThread().getId();
@@ -354,7 +352,7 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        ";
 }
 
-/* Creates a pointcut for an outgoing method call/return in local history of object of type typeName
+/* Creates a pointcut for an outgoing method call/execution/return in local history of object of type typeName
  * @param e   The event for which a pointcut must be created
  * @param typeName   The type of the object under test
  * @param eventName   The token class storing the attributes involved in the event
@@ -383,8 +381,7 @@ private str pointcutMethod(OutEvent e, str typeName, str eventName, str viewName
     str aspectName = "<viewName>Aspect";
     
     if(/(Modifier) `static` !:= e.h.m) { // non-static method
-return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
-       '<callRet>(<makeParameters(params)>)<retNonVoid>:
+return "<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (<callExec>(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
        '        long threadId = Thread.currentThread().getId();
@@ -398,8 +395,7 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
        '    <}>
        '}";
     } else { // static method
-return "
-       '<callRet>(<makeParameters(staticParams)>)<retNonVoid>: // static method
+return "<callRet>(<makeParameters(staticParams)>)<retNonVoid>: // static method
        '  (<callExec>(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '        long threadId = Thread.currentThread().getId();
@@ -457,8 +453,7 @@ private str pointcutCons(OutEvent e, str eventName, str viewName, ViewType viewT
     
     str aspectName = "<viewName>Aspect";
     
-return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
-       '<callRet>(<makeParameters(params)>)<retNonVoid>:
+return "<callRet>(<makeParameters(params)>)<retNonVoid>:
        '  (call(<e.h.m> <e.h.t>+.new(..)) && this(clr) && args(<formalsToParams(e.h.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '    long threadId = Thread.currentThread().getId();
@@ -474,7 +469,7 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        ";
 }
 
-/* Creates a pointcut for a method call/return in global history
+/* Creates a pointcut for a method call/execution/return in global history
  * @param e   The event for which a pointcut must be created
  * @param eventName   The token class storing the attributes involved in the event
  * @param viewName   The name of the enclosing communication view
@@ -523,8 +518,7 @@ private str pointcutMethod(OutEvent e, str eventName, str viewName, ViewType vie
     str aspectName = "<viewName>Aspect";
     
     if(/(Modifier) `static` !:= e.h.m) { // to non-static method
-return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
-       '<callRet>(<makeParameters(params)>)<retNonVoid>: // from non-static method to non-static method
+return "<callRet>(<makeParameters(params)>)<retNonVoid>: // from non-static method to non-static method
        '  (<callExec>(<e.h.m> <e.h.r> *.<e.h.d.id>(..)) && this(clr) && target(cle) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus() <if("<e.esc>"=="ExcludeSelfCalls") {>&& clr!=cle <}>)) {
        '    long threadId = Thread.currentThread().getId();
@@ -538,8 +532,7 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
        '    <adviceStaticToInstance>
        '}";
     } else { // to static method
-return "
-       '<callRet>(<makeParameters(staticParams1)>)<retNonVoid>: // from non-static method to static method
+return "<callRet>(<makeParameters(staticParams1)>)<retNonVoid>: // from non-static method to static method
        '  (<callExec>(<e.h.m> <e.h.r> <e.h.t>.<e.h.d.id>(..)) && this(clr) && !target(Object) && args(<formalsToParams(e.h.d.p)>)
        '   && if(<aspectName>.class.desiredAssertionStatus())) {
        '    long threadId = Thread.currentThread().getId();
@@ -580,26 +573,34 @@ return "<grammar.h ? "">
        '///////////////////////////////////////////////////////
        '<for (InEvent e <- hv.inTokens) {>
        '  <if(e is InCall || e is InExec)  {>
+       '    /* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
+       '    ///////////////////// Token Class /////////////////////
        '    <tokenClassMethod(e, hv.typeName, hv.inTokens[e].name, hv.history)>
+       '    /////////////////////// Aspect ////////////////////////
        '    <pointcutMethod(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
        '  <} else {> <if(e is InCons) {>
+       '    /* <e.h.m> new(<e.h.p>) */
+       '    ///////////////////// Token Class /////////////////////
        '    <tokenClassCons(e, hv.typeName, hv.inTokens[e].name, hv.history)>
+       '    /////////////////////// Aspect ////////////////////////
        '    <pointcutCons(e, hv.typeName, hv.inTokens[e].name, hv.history, hv.noField)>
        '  <}> <}>
-       '///////////////////////////////////////////////////////
-       '///////////////////////////////////////////////////////
        '<}>
        '
        '<for (OutEvent e <- hv.outTokens) {>
        '  <if(e is OutCall || e is OutExec) {>
+       '    /* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
+       '    ///////////////////// Token Class /////////////////////
        '    <tokenClassMethod(e, hv.typeName, hv.outTokens[e].name, hv.history)>
+       '    /////////////////////// Aspect ////////////////////////
        '    <pointcutMethod(e, hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
        '  <} else {> <if(e is OutCons) {>
+       '    /* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
+       '    ///////////////////// Token Class /////////////////////
        '    <tokenClassCons(e, hv.typeName, hv.outTokens[e].name, hv.history)>
+       '    /////////////////////// Aspect ////////////////////////
        '    <pointcutCons(e,hv.typeName, hv.outTokens[e].name, hv.history, hv.noField)>
        '  <}> <}>
-       '///////////////////////////////////////////////////////
-       '///////////////////////////////////////////////////////
        '<}>
        '
        '///////////////////////////////////////////////////////
@@ -632,14 +633,18 @@ return "<grammar.h ? "">
        '///////////////////////////////////////////////////////
        '<for (OutEvent e <- hv.outTokens) {>
        '  <if(e is OutCall || e is OutExec) {>
+       '    /* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
+       '    ///////////////////// Token Class /////////////////////
        '    <tokenClassMethod(e, "", hv.outTokens[e].name, hv.history)>
+       '    /////////////////////// Aspect ////////////////////////
        '    <pointcutMethod(e, hv.outTokens[e].name, hv.history, hv.viewType)>
        '  <} else {> <if(e is OutCons) {>
+       '    /* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
+       '    ///////////////////// Token Class /////////////////////
        '    <tokenClassCons(e, "", hv.outTokens[e].name, hv.history)>
+       '    /////////////////////// Aspect ////////////////////////
        '    <pointcutCons(e, hv.outTokens[e].name, hv.history, hv.viewType)>
        '  <}> <}>
-       '///////////////////////////////////////////////////////
-       '///////////////////////////////////////////////////////
        '<}>
        '
        '///////////////////////////////////////////////////////
