@@ -99,59 +99,60 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
  * @return   The token class (as a string) for the communication event
 */
 private str tokenClassCons(InEvent e, str typeName, str eventName, str historyClass) {
-    params = [elem | elem <- e.h.p.elements];
     caller = [FormalParameter] "Object caller";
     callee = [FormalParameter] "<typeName> callee";
     result = [FormalParameter] "<typeName> result";
     thread = [FormalParameter] "long threadId";
+    
+    params = [elem | elem <- e.h.p.elements];
     params = [caller, callee, *params, result, thread];
     
     return txtTokenClass(makeParameters(params), eventName, typeName, historyClass);
 }
 
 private str tokenClassMethod(InEvent e, str typeName, str eventName, str historyClass) {
-    params = [elem | elem <- e.h.d.p.elements];
     caller = [FormalParameter] "Object caller";
     callee = [FormalParameter] "<typeName> callee";
-    params = [caller, callee, *params];
+    thread = [FormalParameter] "long threadId";
     
+    params = [elem | elem <- e.h.d.p.elements];
+    params = [caller, callee, *params];
     if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
       result = [FormalParameter] "<e.h.r> result";
       params = params + [result];
     }
-    thread = [FormalParameter] "long threadId";
     params = [*params, thread];
     
     return txtTokenClass(makeParameters(params), eventName, "<e.h.d.id>", historyClass);
 }
 
 private str tokenClassCons(OutEvent e, str typeName, str eventName, str historyClass) {
-    params = [ elem | elem <- e.h.p.elements];
     caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
     callee = [FormalParameter] "<e.h.t> callee";
-    params = [caller, callee, *params];
+    thread = [FormalParameter] "long threadId";
     
+    params = [ elem | elem <- e.h.p.elements];
+    params = [caller, callee, *params];
     if ("return" == "<e.cr>") {
       result = <[FormalParameter] "<e.h.t> result">;
       params = [*params, result];
     }
-    thread = [FormalParameter] "long threadId";
     params = [*params, thread];
     
     return txtTokenClass(makeParameters(params), eventName, "new_<e.h.t>", historyClass);
 }
 
 private str tokenClassMethod(OutEvent e, str typeName, str eventName, str historyClass) {
-    params = [ elem | elem <- e.h.d.p.elements];
     caller = [FormalParameter] "<typeName == "" ? "Object" : typeName> caller";
     callee = [FormalParameter] "<e.h.t> callee";
-    params = [caller, callee, *params];
+    thread = [FormalParameter] "long threadId";
     
+    params = [ elem | elem <- e.h.d.p.elements];
+    params = [caller, callee, *params];
     if ((MethodRes) `void` !:= e.h.r && "return" == "<e.cr>") {
       result = [FormalParameter] "<e.h.r> result";
       params = [*params, result];
     }
-    thread = [FormalParameter] "long threadId";
     params = [*params, thread];
     
     return txtTokenClass(makeParameters(params), eventName, "<e.h.d.id>", historyClass);
@@ -210,12 +211,13 @@ private list[str] formalsToPrintables({FormalParameter ","}* formals, str histor
  * @return   The pointcut (as a string) for the communication event
 */
 private str pointcutCons(InEvent e, str typeName, str eventName, str viewName, bool noField) {
-    staticParams = [ elem | elem <- e.h.p.elements];
     clr = [FormalParameter] "Object clr";
-    params = [clr, *staticParams];
     ret = [FormalParameter] "<typeName> ret";
-    histParams = [*staticParams, ret];
     thread = [FormalParameter] "long threadId";
+    
+    staticParams = [ elem | elem <- e.h.p.elements];
+    params = [clr, *staticParams];
+    histParams = [*staticParams, ret];
     histParams = [*histParams, thread];
     str aspectName = "<viewName>Aspect";
     
@@ -263,9 +265,10 @@ private str pointcutMethod(InEvent e, str typeName, str eventName, str viewName,
            "Provided methods in local histories cannot be static: <trim("<e.h>")>";
     cle = [FormalParameter] "<typeName> cle";
     clr = [FormalParameter] "Object clr";
+    thread = [FormalParameter] "long threadId";
+    
     staticParams = cle + [elem | elem <- e.h.d.p.elements];
     params = clr + staticParams;
-    str aspectName = "<viewName>Aspect";
 
     bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
     str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
@@ -274,8 +277,8 @@ private str pointcutMethod(InEvent e, str typeName, str eventName, str viewName,
     
     histParams = retNonVoidMethod ? (staticParams + [FormalParameter] "<e.h.r> ret")
                                   : staticParams;
-    thread = [FormalParameter] "long threadId";
     histParams = [*histParams, thread];
+    str aspectName = "<viewName>Aspect";
 
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
@@ -317,11 +320,12 @@ return "/* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
  * @return   The pointcut (as a string) for the communication event
 */
 private str pointcutCons(OutEvent e, str typeName, str eventName, str viewName, bool noField) {
+    clr = [FormalParameter] "<typeName> clr";
+    thread = [FormalParameter] "long threadId";
+    
     params = [elem | elem <- e.h.p.elements];
     histParams = params;
-    clr =[FormalParameter] "<typeName> clr";
     params = [clr, *params];
-    str aspectName = "<viewName>Aspect";
     
     bool retNonVoidMethod = ("<e.cr>" == "return");
     str retNonVoid        = retNonVoidMethod ? " returning(<e.h.t> ret)" : "";
@@ -329,8 +333,8 @@ private str pointcutCons(OutEvent e, str typeName, str eventName, str viewName, 
     
     histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
                                   : histParams;
-    thread = [FormalParameter] "long threadId";
     histParams = [*histParams, thread];
+    str aspectName = "<viewName>Aspect";
 
 return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
        '<callRet>(<makeParameters(params)>)<retNonVoid>:
@@ -358,13 +362,14 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
  * @return   The pointcut (as a string) for the communication event
 */
 private str pointcutMethod(OutEvent e, str typeName, str eventName, str viewName, bool noField) {
-    params = [elem | elem <- e.h.d.p.elements];
-    histParams = params;
     clr = [FormalParameter] "<typeName> clr";
     cle = [FormalParameter] "<e.h.t> cle";
+    thread = [FormalParameter] "long threadId";
+    
+    params = [elem | elem <- e.h.d.p.elements];
+    histParams = params;
     staticParams = [clr, *params];
     params = [clr, cle, *params];
-    str aspectName = "<viewName>Aspect";
 
     bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
     str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
@@ -373,8 +378,8 @@ private str pointcutMethod(OutEvent e, str typeName, str eventName, str viewName
     
     histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.r> ret")
                                   : histParams;
-    thread = [FormalParameter] "long threadId";
     histParams = [*histParams, thread];
+    str aspectName = "<viewName>Aspect";
     
     if(/(Modifier) `static` !:= e.h.m) { // non-static method
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
@@ -417,11 +422,12 @@ return "
  * @return   The pointcut (as a string) for the communication event
 */
 private str pointcutCons(OutEvent e, str eventName, str viewName) {
+    clr = [FormalParameter] "Object clr";
+    thread = [FormalParameter] "long threadId";
+    
     params = [elem | elem <- e.h.p.elements];
     histParams = params;
-    clr = [FormalParameter] "Object clr";
     params = [clr, *params];
-    str aspectName = "<viewName>Aspect";
     
     bool retNonVoidMethod = ("<e.cr>" == "return");
     str retNonVoid        = retNonVoidMethod ? " returning(<e.h.t> ret)" : "";
@@ -429,8 +435,8 @@ private str pointcutCons(OutEvent e, str eventName, str viewName) {
     
     histParams = retNonVoidMethod ? (histParams + [FormalParameter] "<e.h.t> ret")
                                   : histParams;
-    thread = [FormalParameter] "long threadId";
     histParams = [*histParams, thread];
+    str aspectName = "<viewName>Aspect";
     
     
 return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
@@ -457,14 +463,15 @@ return "/* <e.cr> <e.h.m> <e.h.t>.new(<e.h.p>) */
  * @return   The pointcut (as a string) for the communication event
 */
 private str pointcutMethod(OutEvent e, str eventName, str viewName) {
-    staticParams1 = [elem | elem <- e.h.d.p.elements];
-    histParams = staticParams1;
     cle = [FormalParameter] "<e.h.t> cle";
     clr = [FormalParameter] "Object clr";
+    thread = [FormalParameter] "long threadId";
+    
+    staticParams1 = [elem | elem <- e.h.d.p.elements];
+    histParams = staticParams1;
     staticParams2 = [cle, *staticParams1];
     staticParams1 = [clr, *staticParams1];
     params = [clr, *staticParams2];
-    str aspectName = "<viewName>Aspect";
 
     bool retNonVoidMethod = ("<e.cr>" == "return" && e.h.r != (MethodRes) `void`);
     str retNonVoid        = retNonVoidMethod ? " returning(<e.h.r> ret)" : "";
@@ -472,8 +479,8 @@ private str pointcutMethod(OutEvent e, str eventName, str viewName) {
     str callExec          = ("<e.cr>" == "exec") ? "execution" : "call";
     
     histParams = retNonVoidMethod ? [*histParams, ret]: histParams;
-    thread = [FormalParameter] "long threadId";
     histParams = [*histParams, thread];
+    str aspectName = "<viewName>Aspect";
     
     if(/(Modifier) `static` !:= e.h.m) { // to non-static method
 return "/* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
