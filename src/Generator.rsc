@@ -43,10 +43,10 @@ public void generate(loc view) {
   loc aspectLoc = view[file=h.history+"Aspect.java"];
   str historyAspect;
   println("Aspect saved to <aspectLoc>...");
-  if(h.typeName != "") { // Local object view
-      historyAspect = localAspect(h, grammarTree);
-  } else { // Global view
-      historyAspect = globalAspect(h, grammarTree);
+  switch(h.viewType) { // Local object view
+      case LOCAL(): historyAspect = localAspect(h, grammarTree);
+      case GLOBAL: historyAspect = globalAspect(h, grammarTree);
+      default: fail;
   }
   writeFile(aspectLoc,historyAspect);
   println("Successfully wrote tracing aspect to <aspectLoc>");
@@ -659,11 +659,13 @@ return "
        '  }
        '
        '  public void print() {
-       '    <if(hv.typeName == "") {>
+       '    <if(hv.viewType is GLOBAL) {>
        '      System.err.println(\"=== ERROR! Global history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") violates grammar <hv.grammar>.g === \\n\");
-       '    <} else {>
-       '      System.err.println(\"=== ERROR! Local history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object violates grammar <hv.grammar>.g === \\n\");
-       '    <}>
+       '    <} else {> <if(hv.viewType is LOCAL) {>
+       '      System.err.println(\"=== ERROR! Local object history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") of <hv.typeName> object violates grammar <hv.grammar>.g === \\n\");
+       '    <} else {> <if(hv.viewType is THREAD) {>
+       '      System.err.println(\"=== ERROR! Local thread history of view <hv.history> (events: \" + Integer.toString(_L.size()-2) + \") violates grammar <hv.grammar>.g === \\n\");
+       '    <}>  <}> <}>
        '
        '    // Print actors of the sequence diagram
        '    Iterator\<Integer\> it = actors.iterator();
