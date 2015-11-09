@@ -1,4 +1,4 @@
-@license{Copyright CWI --- Jurgen Vinju, Stijn de Gouw 2014}
+@license{Copyright CWI --- Jurgen Vinju, Stijn de Gouw 2015}
 module Generator
 
 import ParseTree; // for parse
@@ -758,10 +758,12 @@ return "
        '      <}>
        '    } catch(Exception r) { // Protocol violation in grammar
        '        print();
-       '        assert false;
+       '        //assert false;
+       '        System.exit(-1);
        '    } catch(Error r) { // Assertion Failure in grammar
        '        print();
-       '        assert false;
+       '        //assert false;
+       '        System.exit(-1);
        '    }
        '  }
        '
