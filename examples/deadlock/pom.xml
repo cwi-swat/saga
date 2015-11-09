@@ -1,0 +1,261 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>nl.cwi.saga</groupId>
+	<artifactId>deadlock</artifactId>
+	<version>1.0-SNAPSHOT</version>
+
+	<packaging>jar</packaging>
+
+	<name>Deadlock detection</name>
+	<description>Attribute grammar for detecting deadlocks at runtime</description>
+
+	<properties>
+		<skipTests>true</skipTests>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<version.antlr>3.4</version.antlr>
+		<version.aspectj>1.7.3</version.aspectj>
+		<version.rascal>0.6.2.201405101911</version.rascal>
+
+		<!-- The folder in which the aspect, the Java Parser and Lexer will be generated in -->
+		<generated.source>${project.build.directory}/aspect</generated.source>
+
+		<!-- The path to Generator.rsc -->
+		<rascal.src>${project.basedir}/../../src</rascal.src>
+
+		<!-- The path to the root dir containing specifications -->
+		<antlr.src>${project.basedir}/src/main/specifications</antlr.src>
+
+		<!-- The folder containing .view and .g files -->
+		<rascal.target>${generated.source}/nl/cwi/saga/deadlock/spec</rascal.target>
+	</properties>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-antrun-plugin</artifactId>
+					<version>1.7</version>
+				</plugin>
+				<plugin>
+					<groupId>org.antlr</groupId>
+					<artifactId>antlr3-maven-plugin</artifactId>
+					<version>${version.antlr}</version>
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>aspectj-maven-plugin</artifactId>
+					<version>1.5</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>3.1</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-assembly-plugin</artifactId>
+					<version>2.3</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-dependency-plugin</artifactId>
+					<version>2.4</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+
+		<plugins>
+			<!-- Generate lexer and parser for grammars -->
+			<!-- Must be in a phase after compile (but before AspectJ), if the grammar references the aspect -->
+			<!-- WARNING: Grammars _MUST_ be located in a subfolder of sourceDirectory. By default, this is src/main/antlr3 -->
+			<!-- For documentation of this plugin, see https://android.googlesource.com/platform/external/antlr/+/refs/tags/android-4.1.2_r2.1/antlr-3.4/antlr3-maven-plugin/src/site/apt/usage.apt.vm -->
+			<plugin>
+				<groupId>org.antlr</groupId>
+				<artifactId>antlr3-maven-plugin</artifactId>
+				<version>${version.antlr}</version>
+				<executions>
+					<execution>
+						<phase>process-classes</phase>
+						<goals>
+							<goal>antlr</goal>
+						</goals>
+						<configuration>
+							<sourceDirectory>${antlr.src}</sourceDirectory>
+							<outputDirectory>${generated.source}</outputDirectory>
+						</configuration>
+					</execution>
+        			</executions>
+				<dependencies>
+					<dependency>
+						<groupId>org.antlr</groupId>
+						<artifactId>antlr-runtime</artifactId>
+						<version>${version.antlr}</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+
+			<!-- compiling aspect and Parser/Lexer sources for load time weaving -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>aspectj-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>process-classes</phase>
+						<goals>
+							<goal>compile</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<showWeaveInfo>true</showWeaveInfo>
+					<complianceLevel>1.7</complianceLevel>
+					<aspectDirectory>${generated.source}</aspectDirectory>
+				</configuration>
+			</plugin>
+			
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>prepare</id>
+						<phase>generate-sources</phase>
+						<configuration>
+							<target>
+								<mkdir dir="${generated.source}" />
+								<copy todir="${generated.source}">
+									<fileset dir="${antlr.src}" />
+								</copy>
+							</target>
+						</configuration>
+						<goals>
+							<goal>run</goal>
+						</goals>
+					</execution>
+
+					<!-- Generate Aspects from views -->
+					<execution>
+						<id>genaspect</id>
+						<phase>process-resources</phase>
+						<configuration>
+							<target>
+								<path id="viewPath.file.id">
+									<fileset dir="${rascal.target}" includes="*.view" />
+								</path>
+								<pathconvert property="viewFileRaw" refid="viewPath.file.id"
+									pathsep="&quot; &quot;file://" />
+								<property name="viewFiles" value="&quot;file://${viewFileRaw}&quot;" />
+								<echo message="generating aspects for communication views: ${viewFiles}" />
+								<java fork="true" failonerror="true" dir="${rascal.src}" classname="org.rascalmpl.shell.RascalShell"
+									classpathref="maven.plugin.classpath">
+									<jvmarg value="-Xmx1G" />
+									<jvmarg value="-Xss32m" />
+									<arg value="Generator.rsc" />
+									<arg line="${viewFiles}"/>
+								</java>
+							</target>
+							<failOnError>true</failOnError>
+						</configuration>
+						<goals>
+							<goal>run</goal>
+						</goals>
+					</execution>
+				</executions>
+				<dependencies>
+					<dependency>
+						<groupId>org.rascalmpl</groupId>
+						<artifactId>rascal-shell</artifactId>
+						<version>${version.rascal}</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+
+			<!-- Compile source code for the Buffered Reader client -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<verbose>true</verbose>
+					<source>1.7</source>
+					<target>1.7</target>
+					<encoding>${project.build.sourceEncoding}</encoding>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>expose-jars</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy</goal>
+						</goals>
+						<configuration>
+							<artifactItems>
+								<artifactItem>
+									<groupId>org.antlr</groupId>
+									<artifactId>antlr-runtime</artifactId>
+									<version>${version.antlr}</version>
+									<type>jar</type>
+									<overWrite>false</overWrite>
+									<outputDirectory>${project.basedir}/target/lib</outputDirectory>
+								</artifactItem>
+								<artifactItem>
+									<groupId>org.aspectj</groupId>
+									<artifactId>aspectjrt</artifactId>
+									<version>${version.aspectj}</version>
+									<type>jar</type>
+									<overWrite>false</overWrite>
+									<outputDirectory>${project.basedir}/target/lib</outputDirectory>
+								</artifactItem>
+								<artifactItem>
+									<groupId>org.jgrapht</groupId>
+									<artifactId>jgrapht-core</artifactId>
+									<version>0.9.1</version>
+									<type>jar</type>
+									<overWrite>false</overWrite>
+									<outputDirectory>${project.basedir}/target/lib</outputDirectory>
+								</artifactItem>
+							</artifactItems>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.aspectj</groupId>
+			<artifactId>aspectjrt</artifactId>
+			<version>${version.aspectj}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.antlr</groupId>
+			<artifactId>antlr-runtime</artifactId>
+			<version>${version.antlr}</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>antlr</artifactId>
+					<groupId>antlr</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.rascalmpl</groupId>
+			<artifactId>rascal-shell</artifactId>
+			<version>${version.rascal}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jgrapht</groupId>
+			<artifactId>jgrapht-core</artifactId>
+			<version>0.9.1</version>
+		</dependency>
+	</dependencies>
+
+</project>

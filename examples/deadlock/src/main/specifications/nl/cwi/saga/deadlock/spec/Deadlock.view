@@ -1,0 +1,10 @@
+global view DeadlockHistory grammar Deadlock.g {
+    call   public synchronized void Deadlock.Friend.bow    (Deadlock.Friend bower) REQ,
+    call   public synchronized void Deadlock.Friend.bowBack(Deadlock.Friend bower) REQ,
+    
+    exec   public synchronized void Deadlock.Friend.bow    (Deadlock.Friend bower) ACQ,
+    exec   public synchronized void Deadlock.Friend.bowBack(Deadlock.Friend bower) ACQ,
+    
+    return public synchronized void Deadlock.Friend.bow    (Deadlock.Friend bower) REL,
+    return public synchronized void Deadlock.Friend.bowBack(Deadlock.Friend bower) REL
+}
