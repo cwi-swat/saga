@@ -40,32 +40,20 @@ start : s[new HashMap<Long, Object>(), new HashMap<Long, Map<Object, Integer> >(
 s[Map<Long, Object> reqLock, Map<Long, Map<Object, Integer> > hasLock] :
     REQ
     {
-	    long tId; Object callee;
-	    if($REQ instanceof DeadlockHistoryAspect.call_bow) {
-			DeadlockHistoryAspect.call_bow event = (DeadlockHistoryAspect.call_bow)$REQ;
-			tId = event.threadId();
-			callee = event.callee();
-	    } else {
-			DeadlockHistoryAspect.call_bowBack event = (DeadlockHistoryAspect.call_bowBack)$REQ;
-			tId = event.threadId();
-			callee = event.callee();
-	    }
+		DeadlockHistoryAspect.DefaultEvent req = (DeadlockHistoryAspect.DefaultEvent)$REQ;
+		long tId = req.threadId();
+		Object callee = req.callee();
+		
 	    reqLock.put(tId, callee);
     }
     s[reqLock,hasLock]
     
   | ACQ
     {
-	    long tId; Object callee;
-	    if($ACQ instanceof DeadlockHistoryAspect.exec_bow) {
-			DeadlockHistoryAspect.exec_bow event = (DeadlockHistoryAspect.exec_bow)$ACQ;
-			tId = event.threadId();
-			callee = event.callee();
-	    } else {
-			DeadlockHistoryAspect.exec_bowBack event = (DeadlockHistoryAspect.exec_bowBack)$ACQ;
-			tId = event.threadId();
-			callee = event.callee();
-	    }
+		DeadlockHistoryAspect.DefaultEvent acq = (DeadlockHistoryAspect.DefaultEvent)$ACQ;
+		long tId = acq.threadId();
+		Object callee = acq.callee();
+		
 	    reqLock.remove(tId);
 		Map<Object, Integer> m = hasLock.get(tId);
 		int newCnt = 1;
@@ -82,16 +70,10 @@ s[Map<Long, Object> reqLock, Map<Long, Map<Object, Integer> > hasLock] :
     
   | REL
     {
-  		long tId; Object caller;
-	    if($REL instanceof DeadlockHistoryAspect.return_bow) {
-			DeadlockHistoryAspect.return_bow event = (DeadlockHistoryAspect.return_bow)$REL;
-			tId = event.threadId();
-			caller = event.caller();
-	    } else {
-			DeadlockHistoryAspect.return_bowBack event = (DeadlockHistoryAspect.return_bowBack)$REL;
-			tId = event.threadId();
-			caller = event.caller();
-	    }
+		DeadlockHistoryAspect.DefaultEvent rel = (DeadlockHistoryAspect.DefaultEvent)$REL;
+		long tId = rel.threadId();
+		Object caller = rel.caller();
+		
 		Map<Object, Integer> m = hasLock.get(tId);
 		Integer cnt = m.get(caller);
 		if(cnt == 1) {
