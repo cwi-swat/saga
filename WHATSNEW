@@ -1,3 +1,9 @@
+==== Version 0.1.5 ====
+* Multi-threading: Print whether event is a call, exec or return in the sequence diagram
+* Exit entire system on an assertion error (includes terminating all threads)
+* Added DefaultEvent class with built-in attributes common to all events
+* Added attribute grammar implementing a run-time deadlock detector
+
 ==== Version 0.1.4 ====
 * Multi-threading: added support for thread-local properties.
 

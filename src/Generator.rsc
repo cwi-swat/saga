@@ -32,7 +32,7 @@ public void generate(loc view) {
   if(view.extension != "view")
     throw "expected .view extension of file <view>";
 
-  println("Starting SAGA version 0.1.4");
+  println("Starting SAGA version 0.1.5");
   h = extractView(view);
  
   println("=============== Processing communication view: " + h.history + " ===============");
@@ -56,7 +56,7 @@ public void generate(loc view) {
 private str txtTokenClass({FormalParameter ","}* params, str className, str methodName, str historyClass) {
     list[str] p = tail(tail(formalsToPrintables(params, historyClass)));  // tail(tail(..)) removes caller and callee
     str methodParams = intercalate(" + \", \" +",p);
-    return "public class <className> extends org.antlr.runtime.CommonToken {
+    return "public class <className> extends DefaultEvent {
            '  private static final long serialVersionUID = 3L;
            '
            '  <for (FormalParameter f <- params) {>
@@ -67,10 +67,39 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
            '  <}>
            '
            '  public String toString() {
-           '    return \"o\" + <historyClass>.objToId.get(caller) + \":o\" + <historyClass>.objToId.get(callee) + \".<methodName>(\" + <methodParams == "" ? "\"\"" : methodParams> + \")\";
+           '    return \"o\" + <historyClass>.objToId.get(caller) + \":o\" + <historyClass>.objToId.get(callee) + \".<className>(\" + <methodParams == "" ? "\"\"" : methodParams> + \")\";
            '  }
            '
            '  public <className>(<params>) {
+           '    super(caller, callee, threadId);
+           '
+           '    <for (FormalParameter f <- params) {>
+           '    this.<f.v> = <f.v>;
+           '    <}>
+           '  }
+           '}
+           '";
+}
+
+private str defaultEventClass(str historyClass) {
+    {FormalParameter ","}* params = makeParameters([(FormalParameter) `Object caller`, (FormalParameter) `Object callee`, (FormalParameter) `long threadId`]);
+	list[str] p = tail(tail(formalsToPrintables(params, historyClass)));  // tail(tail(..)) removes caller and callee
+    str methodParams = intercalate(" + \", \" +",p);
+    return "public class DefaultEvent extends org.antlr.runtime.CommonToken {
+           '  private static final long serialVersionUID = 3L;
+           '
+           '  <for (FormalParameter f <- params) {>
+           '  private final <f.t> <f.v>;
+           '  public <f.t> <f.v>() {
+           '    return this.<f.v>;
+           '  }
+           '  <}>
+           '
+           '  public String toString() {
+           '    return \"\";
+           '  }
+           '
+           '  public DefaultEvent(<params>) {
            '    super(-1);
            '
            '    <for (FormalParameter f <- params) {>
@@ -80,7 +109,7 @@ private str txtTokenClass({FormalParameter ","}* params, str className, str meth
            '}
            '";
 }
-  
+
 {FormalParameter ","}* makeParameters(list[FormalParameter] params) {
     FormalParameters result = (FormalParameters) ``;
     
@@ -571,6 +600,8 @@ return "<grammar.h ? "">
        '///////////////////////////////////////////////////////
        '/////////////////////// Events ////////////////////////
        '///////////////////////////////////////////////////////
+       '<defaultEventClass(hv.history)>
+       '
        '<for (InEvent e <- hv.inTokens) {>
        '  <if(e is InCall || e is InExec)  {>
        '    /* <e.cr> <e.h.m> <e.h.r> <e.h.d> */
@@ -631,6 +662,8 @@ return "<grammar.h ? "">
        '///////////////////////////////////////////////////////
        '/////////////////////// Events ////////////////////////
        '///////////////////////////////////////////////////////
+       '<defaultEventClass(hv.history)>
+       '
        '<for (OutEvent e <- hv.outTokens) {>
        '  <if(e is OutCall || e is OutExec) {>
        '    /* <e.cr> <e.h.m> <e.h.r> <e.h.t> <e.h.d> */
@@ -759,11 +792,11 @@ return "
        '    } catch(Exception r) { // Protocol violation in grammar
        '        print();
        '        //assert false;
-       '        System.exit(-1);
+       '		System.exit(-1);
        '    } catch(Error r) { // Assertion Failure in grammar
        '        print();
        '        //assert false;
-       '        System.exit(-1);
+       '		System.exit(-1);
        '    }
        '  }
        '
