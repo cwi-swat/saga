@@ -72,15 +72,15 @@ s[Map<Long, Object> reqLock, Map<Long, Map<Object, Integer> > hasLock] :
     {
 		DeadlockHistoryAspect.DefaultEvent rel = (DeadlockHistoryAspect.DefaultEvent)$REL;
 		long tId = rel.threadId();
-		Object caller = rel.caller();
+		Object callee = rel.callee();
 		
 		Map<Object, Integer> m = hasLock.get(tId);
-		Integer cnt = m.get(caller);
+		Integer cnt = m.get(callee);
 		if(cnt == 1) {
-			m.remove(caller);
+			m.remove(callee);
 		}
 		else {
-			m.put(caller, cnt-1);
+			m.put(callee, cnt-1);
 		}
   
   }
