@@ -1,0 +1,6 @@
+thread view BowHistory grammar Bow.g {
+    call public synchronized void
+         Deadlock.Friend.bow(Friend bower)     BOW,
+    call public synchronized void
+         Deadlock.Friend.bowBack(Friend bower) BOWBACK
+}
