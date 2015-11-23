@@ -790,10 +790,12 @@ return "
        '      _start = parser.start();
        '      <}>
        '    } catch(Exception r) { // Protocol violation in grammar
+       '        r.printStackTrace();
        '        print();
        '        //assert false;
        '		System.exit(-1);
        '    } catch(Error r) { // Assertion Failure in grammar
+       '        r.printStackTrace();
        '        print();
        '        //assert false;
        '		System.exit(-1);
